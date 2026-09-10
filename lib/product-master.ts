@@ -7,7 +7,7 @@ export type ProductMaster = {
   line: string; brand: string; group: string; subgroup: string; packaging: { inner: number; master: number }
   unit: string; weight: number; cost: number; price: number; taxRate: number; warehouse: string
   stock: number; stockMin: number; stockMax: number; images: string[]; suppliers: string[]
-  characteristics: string; accountingAccount: string; active: boolean
+  characteristics: string; active: boolean
 }
 
 export const PRODUCT_STORAGE_KEY = "ferreia-admin-inventory-products-v2"
@@ -24,6 +24,6 @@ export const initialProductMaster: ProductMaster[] = INVENTORY.map((item, index)
   line: item.categoria, brand: item.marca, group: item.categoria, subgroup: item.subcategoria,
   packaging: { inner: 10, master: 30 }, unit: item.unidad, weight: 0, cost: item.costo, price: item.precio, taxRate: 19,
   warehouse: item.bodega, stock: item.stockActual, stockMin: item.stockMin, stockMax: Math.max(item.stockMin * 5, item.stockActual + 50),
-  images: [], suppliers: [index % 2 ? "Importadora Truper S.A." : "Distribuidora Bosch Colombia"], characteristics: `${item.marca} · ${item.subcategoria}`, accountingAccount: "143501", active: true,
+  images: [], suppliers: [index % 2 ? "Importadora Truper S.A." : "Distribuidora Bosch Colombia"], characteristics: `${item.marca} · ${item.subcategoria}`, active: true,
 }))
 export function nextReference(products: ProductMaster[]) { return String(Math.max(0, ...products.map((p) => Number(p.reference) || 0)) + 1).padStart(5, "0") }

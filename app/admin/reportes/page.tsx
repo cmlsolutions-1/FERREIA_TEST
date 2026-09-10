@@ -136,7 +136,6 @@ export default function ReportesPage() {
                   {[
                     ["Ventas detalladas", "Mensual", "Ventas y Pedidos"],
                     ["Inventario valorizado", "Actual", "Inventario"],
-                    ["Kardex por producto", "Rango de fechas", "Kardex"],
                     ["Compras por proveedor", "Mensual", "Compras"],
                   ].map(([name, period, source]) => (
                     <TableRow key={name}>

@@ -120,7 +120,7 @@ export default function ConfiguracionPage() {
             <CardContent className="space-y-3">
               {[
                 ["Administrador", "Acceso total al ERP y configuración"],
-                ["Inventario", "Productos, kardex y bodegas"],
+                ["Inventario", "Productos y bodegas"],
                 ["Ventas", "Pedidos, clientes y caja POS"],
                 ["Compras", "Proveedores y órdenes de compra"],
               ].map(([role, detail]) => (

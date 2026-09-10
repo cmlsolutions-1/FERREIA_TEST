@@ -451,7 +451,7 @@ export const TESTIMONIALS = [
   {
     name: "Ferretería El Tornillo",
     role: "Cliente mayorista · Cali",
-    text: "El módulo de inventario y kardex transformó nuestra bodega. Ahora sabemos qué falta y cuánto vendemos en tiempo real.",
+    text: "El módulo de inventario transformó nuestra bodega. Ahora sabemos qué falta y cuánto vendemos en tiempo real.",
     rating: 5,
   },
 ]
@@ -517,28 +517,6 @@ export const INVENTORY: InventoryItem[] = PRODUCTS.map((p, i) => ({
   stockActual: p.stock,
   bodega: i % 2 === 0 ? "Bodega Norte" : "Bodega Sur",
 }))
-
-export type KardexMove = {
-  fecha: string
-  producto: string
-  tipo: "Entrada" | "Salida" | "Ajuste" | "Transferencia"
-  bodega: string
-  usuario: string
-  inicial: number
-  entradas: number
-  salidas: number
-  final: number
-}
-
-export const KARDEX: KardexMove[] = [
-  { fecha: "2026-06-14", producto: "Bombillo LED E27 12W", tipo: "Entrada", bodega: "Bodega Norte", usuario: "j.ramirez", inicial: 280, entradas: 100, salidas: 0, final: 380 },
-  { fecha: "2026-06-14", producto: "Taladro Percutor 20V", tipo: "Salida", bodega: "Bodega Sur", usuario: "m.torres", inicial: 50, entradas: 0, salidas: 8, final: 42 },
-  { fecha: "2026-06-13", producto: "Tornillo Drywall 6x1\"", tipo: "Salida", bodega: "Bodega Norte", usuario: "POS-01", inicial: 600, entradas: 0, salidas: 60, final: 540 },
-  { fecha: "2026-06-13", producto: "Pintura Vinilo Galón", tipo: "Ajuste", bodega: "Bodega Sur", usuario: "admin", inicial: 100, entradas: 0, salidas: 4, final: 96 },
-  { fecha: "2026-06-12", producto: "Sierra Circular 7-1/4\"", tipo: "Transferencia", bodega: "Bodega Norte → Sur", usuario: "j.ramirez", inicial: 40, entradas: 0, salidas: 12, final: 28 },
-  { fecha: "2026-06-12", producto: "Casco Seguridad ANSI", tipo: "Entrada", bodega: "Bodega Norte", usuario: "compras", inicial: 150, entradas: 60, salidas: 0, final: 210 },
-  { fecha: "2026-06-11", producto: "Reflector LED 50W", tipo: "Salida", bodega: "Bodega Sur", usuario: "POS-02", inicial: 80, entradas: 0, salidas: 16, final: 64 },
-]
 
 export type Order = {
   id: string
