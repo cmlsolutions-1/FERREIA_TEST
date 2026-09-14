@@ -13,7 +13,7 @@ import {
   ShoppingCart,
   Receipt,
   Users,
-  Truck,
+  PackageCheck,
   PackageSearch,
   BarChart3,
   Settings,
@@ -21,7 +21,6 @@ import {
   Menu,
   X,
 } from "lucide-react"
-import { WMS_MODULES } from "@/lib/wms-modules"
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -29,9 +28,9 @@ const NAV = [
   { href: "/admin/inventario", label: "Inventario", icon: Boxes },
   { href: "/admin/compras", label: "Compras", icon: ShoppingCart },
   { href: "/admin/ventas", label: "Ventas", icon: Receipt },
+  { href: "/admin/pedidos", label: "Pedidos", icon: PackageCheck },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/proveedores", label: "Proveedores", icon: PackageSearch },
-  { href: "/admin/logistica", label: "Logística", icon: Truck },
   { href: "/admin/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/admin/configuracion", label: "Configuración", icon: Settings },
 ]
@@ -49,7 +48,6 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(pathname.startsWith("/admin/inventario"))
-  const [logisticsOpen, setLogisticsOpen] = useState(pathname.startsWith("/admin/logistica"))
 
   return (
     <>
@@ -101,14 +99,6 @@ export function AdminSidebar() {
                   <p className="px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">Operaciones de inventario</p>
                   {INVENTORY_OPERATIONS.map((operation) => { const moduleActive = pathname === operation.href; return <Link key={operation.href} href={operation.href} onClick={() => setOpen(false)} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] leading-4 transition-colors", moduleActive ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}><span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", moduleActive ? "bg-sidebar-primary" : "bg-sidebar-foreground/25")} />{operation.label}</Link> })}
                 </div>}
-              </div>
-            )
-            if (item.href === "/admin/logistica") return (
-              <div key={item.href}>
-                <button type="button" onClick={() => setLogisticsOpen((value) => !value)} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", pathname.startsWith("/admin/logistica") ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}>
-                  <Icon className="h-4 w-4 shrink-0" /><span className="flex-1 text-left">WMS Logístico</span><ChevronDown className={cn("h-4 w-4 transition-transform", logisticsOpen && "rotate-180")} />
-                </button>
-                {logisticsOpen && <div className="ml-3 mt-1 space-y-0.5 border-l border-sidebar-border py-1 pl-2"><Link href="/admin/logistica" onClick={() => setOpen(false)} className={cn("flex items-center gap-2 rounded-md px-2 py-2 text-xs transition-colors", pathname === "/admin/logistica" ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}><span className={cn("h-1.5 w-1.5 rounded-full", pathname === "/admin/logistica" ? "bg-sidebar-primary" : "bg-sidebar-foreground/25")} />Dashboard logístico</Link><p className="px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">Operaciones WMS</p>{WMS_MODULES.map((module) => { const href=`/admin/logistica/${module.key}`; const moduleActive=pathname===href; return <Link key={module.key} href={href} onClick={() => setOpen(false)} className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] leading-4 transition-colors", moduleActive ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground" : "text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}><span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", moduleActive ? "bg-sidebar-primary" : "bg-sidebar-foreground/25")} />{module.shortName}</Link> })}</div>}
               </div>
             )
             return (

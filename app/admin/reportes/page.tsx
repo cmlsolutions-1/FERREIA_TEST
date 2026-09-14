@@ -1,4 +1,8 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { PageHeader } from "@/components/admin/page-header"
+import { useOrders } from "@/components/order-provider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,19 +16,29 @@ import {
 } from "@/components/ui/table"
 import {
   CATEGORY_SALES,
-  INVENTORY,
-  ORDERS,
   PURCHASES,
   SALES_CHART,
   formatCOP,
 } from "@/lib/data"
 import { BarChart3, Download, FileSpreadsheet, TrendingUp } from "lucide-react"
+import { INVENTORY_UPDATED_EVENT } from "@/lib/orders"
+import { initialProductMaster, PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
 
 export default function ReportesPage() {
-  const ventas = ORDERS.filter((order) => order.estado !== "Cancelado").reduce((acc, order) => acc + order.total, 0)
+  const { orders } = useOrders()
+  const [products, setProducts] = useState<ProductMaster[]>(initialProductMaster)
+  const ventas = orders.filter((order) => order.status !== "Cancelado").reduce((acc, order) => acc + order.total, 0)
   const compras = PURCHASES.reduce((acc, purchase) => acc + purchase.total, 0)
   const margenEstimado = ventas - compras * 0.28
-  const bajoMinimo = INVENTORY.filter((item) => item.stockActual <= item.stockMin)
+  const bajoMinimo = products.filter((item) => item.stock <= item.stockMin)
+
+  useEffect(() => {
+    function loadInventory() { const stored = localStorage.getItem(PRODUCT_STORAGE_KEY); setProducts(stored ? JSON.parse(stored) as ProductMaster[] : initialProductMaster) }
+    loadInventory()
+    window.addEventListener(INVENTORY_UPDATED_EVENT, loadInventory)
+    window.addEventListener("storage", loadInventory)
+    return () => { window.removeEventListener(INVENTORY_UPDATED_EVENT, loadInventory); window.removeEventListener("storage", loadInventory) }
+  }, [])
 
   return (
     <div>
@@ -178,9 +192,9 @@ export default function ReportesPage() {
             </div>
             {bajoMinimo.slice(0, 3).map((item) => (
               <div key={item.sku} className="flex items-center justify-between rounded-lg bg-secondary p-3 text-sm">
-                <span className="max-w-[180px] truncate">{item.nombre}</span>
+                <span className="max-w-[180px] truncate">{item.name}</span>
                 <Badge variant="secondary" className="border-0 bg-amber-100 text-amber-800">
-                  {item.stockActual}
+                  {item.stock}
                 </Badge>
               </div>
             ))}

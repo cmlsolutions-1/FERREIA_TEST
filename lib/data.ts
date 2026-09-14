@@ -518,25 +518,6 @@ export const INVENTORY: InventoryItem[] = PRODUCTS.map((p, i) => ({
   bodega: i % 2 === 0 ? "Bodega Norte" : "Bodega Sur",
 }))
 
-export type Order = {
-  id: string
-  cliente: string
-  fecha: string
-  total: number
-  items: number
-  estado: "Pendiente" | "Pagado" | "En preparación" | "Enviado" | "Entregado" | "Cancelado"
-}
-
-export const ORDERS: Order[] = [
-  { id: "FE-10231", cliente: "Carlos Mendoza", fecha: "2026-06-15", total: 489900, items: 3, estado: "Pendiente" },
-  { id: "FE-10230", cliente: "Constructora Andina S.A.S", fecha: "2026-06-15", total: 2340000, items: 24, estado: "Pagado" },
-  { id: "FE-10229", cliente: "Andrea Gómez", fecha: "2026-06-14", total: 128900, items: 5, estado: "En preparación" },
-  { id: "FE-10228", cliente: "Ferretería El Tornillo", fecha: "2026-06-14", total: 1890000, items: 41, estado: "Enviado" },
-  { id: "FE-10227", cliente: "Juan Pérez", fecha: "2026-06-13", total: 64900, items: 1, estado: "Entregado" },
-  { id: "FE-10226", cliente: "Inmobiliaria Centro", fecha: "2026-06-13", total: 456000, items: 8, estado: "Cancelado" },
-  { id: "FE-10225", cliente: "María López", fecha: "2026-06-12", total: 89900, items: 2, estado: "Entregado" },
-]
-
 export type Customer = {
   id: string
   nombre: string
@@ -587,21 +568,6 @@ export const PURCHASES: Purchase[] = [
   { id: "OC-2040", proveedor: "Pretul Distribución", fecha: "2026-06-13", total: 9200000, estado: "Facturada" },
   { id: "OC-2039", proveedor: "Philips Iluminación", fecha: "2026-06-12", total: 5600000, estado: "Enviada" },
   { id: "OC-2038", proveedor: "Importadora Truper S.A.", fecha: "2026-06-10", total: 12100000, estado: "Borrador" },
-]
-
-export type Shipment = {
-  guia: string
-  pedido: string
-  transportadora: string
-  destino: string
-  estado: "En bodega" | "En tránsito" | "En reparto" | "Entregado"
-}
-
-export const SHIPMENTS: Shipment[] = [
-  { guia: "TCC-889201", pedido: "FE-10228", transportadora: "TCC", destino: "Cali", estado: "En tránsito" },
-  { guia: "SER-771234", pedido: "FE-10229", transportadora: "Servientrega", destino: "Bogotá", estado: "En reparto" },
-  { guia: "COO-445566", pedido: "FE-10227", transportadora: "Coordinadora", destino: "Barranquilla", estado: "Entregado" },
-  { guia: "INT-998877", pedido: "FE-10225", transportadora: "Interrapidísimo", destino: "Medellín", estado: "En bodega" },
 ]
 
 export const DEPARTAMENTOS = [

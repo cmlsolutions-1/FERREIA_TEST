@@ -11,7 +11,7 @@ import { calculateTieredPrice } from "@/lib/pricing"
 export default function CartPage() {
   const { lines, subtotal, setQty, removeItem, count } = useCart()
   const iva = Math.round(subtotal * 0.19)
-  const envio = subtotal > 150000 || subtotal === 0 ? 0 : 12000
+  const envio = subtotal >= 150000 || subtotal === 0 ? 0 : 12000
   const total = subtotal + iva + envio
 
   if (count === 0) {

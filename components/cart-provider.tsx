@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import type { Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 
@@ -20,9 +20,22 @@ type CartContextValue = {
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
+const CART_STORAGE_KEY = "ferreia-cart-v1"
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([])
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CART_STORAGE_KEY)
+      if (stored) setLines(JSON.parse(stored) as CartLine[])
+    } finally { setHydrated(true) }
+  }, [])
+
+  useEffect(() => {
+    if (hydrated) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines))
+  }, [hydrated, lines])
 
   function addItem(product: Product, qty = 1) {
     setLines((prev) => {

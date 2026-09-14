@@ -14,8 +14,20 @@ import {
   Sparkles,
   User,
   LayoutDashboard,
+  PackageSearch,
+  ChevronDown,
+  LogOut,
 } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Sheet,
@@ -25,6 +37,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useCart } from "@/components/cart-provider"
+import { useCustomerSession } from "@/components/customer-session-provider"
 import { CATEGORIES, COMPANY } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -44,6 +57,7 @@ function Logo({ className }: { className?: string }) {
 export function SiteHeader() {
   const router = useRouter()
   const { count } = useCart()
+  const { user, logout } = useCustomerSession()
   const [query, setQuery] = useState("")
 
   function onSearch(e: React.FormEvent) {
@@ -65,6 +79,9 @@ export function SiteHeader() {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <Link href="/rastrear-pedido" className="flex items-center gap-1 hover:text-accent">
+              <PackageSearch className="h-3.5 w-3.5" /> Rastrear pedido
+            </Link>
             <Link href="/asistente" className="hover:text-accent">
               Asistente IA
             </Link>
@@ -127,14 +144,25 @@ export function SiteHeader() {
           </form>
 
           <div className="ml-auto flex items-center gap-1 md:ml-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-primary"
-              aria-label="Mi cuenta"
-            >
-              <User className="h-5 w-5" />
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" className="gap-2 px-2 text-primary" aria-label={`Cuenta de ${user.name}`} />}>
+                  <Avatar size="sm"><AvatarFallback className="bg-primary font-bold text-primary-foreground">{initials(user.name)}</AvatarFallback></Avatar>
+                  <span className="hidden max-w-28 truncate text-sm font-semibold lg:inline">{user.name.split(" ")[0]}</span>
+                  <ChevronDown className="hidden h-3.5 w-3.5 lg:block" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="px-3 py-2"><span className="block truncate font-semibold text-foreground">{user.name}</span><span className="block truncate font-normal">{user.email}</span></DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push("/mi-cuenta")}><User />Mi cuenta y pedidos</DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onClick={logout}><LogOut />Cerrar sesión</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button asChild variant="ghost" className="text-primary" aria-label="Mi cuenta">
+                <Link href="/mi-cuenta"><User className="h-5 w-5" /><span className="ml-1 hidden text-sm font-medium lg:inline">Ingresar</span></Link>
+              </Button>
+            )}
             <Button
               asChild
               variant="ghost"
@@ -189,6 +217,10 @@ export function SiteHeader() {
   )
 }
 
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase()
+}
+
 function MobileNav() {
   return (
     <Sheet>
@@ -222,6 +254,12 @@ function MobileNav() {
           </Link>
           <Link href="/buscar-ia" className="rounded-md px-3 py-2 text-sm hover:bg-secondary">
             Buscar por foto
+          </Link>
+          <Link href="/rastrear-pedido" className="rounded-md px-3 py-2 text-sm hover:bg-secondary">
+            Rastrear pedido
+          </Link>
+          <Link href="/mi-cuenta" className="rounded-md px-3 py-2 text-sm hover:bg-secondary">
+            Mi cuenta
           </Link>
           <Link href="/admin" className="rounded-md px-3 py-2 text-sm hover:bg-secondary">
             Panel administrador

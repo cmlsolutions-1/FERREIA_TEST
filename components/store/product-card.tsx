@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/components/cart-provider"
 import { formatCOP, type Product } from "@/lib/data"
 import { cn } from "@/lib/utils"
+import { useLiveStock } from "@/components/use-live-stock"
 
 export function RatingStars({ rating, className }: { rating: number; className?: string }) {
   return (
@@ -28,8 +29,10 @@ export function RatingStars({ rating, className }: { rating: number; className?:
 export function ProductCard({ product }: { product: Product }) {
   const { addItem } = useCart()
   const [added, setAdded] = useState(false)
+  const stock = useLiveStock(product.sku, product.stock)
 
   function handleAdd() {
+    if (stock <= 0) return
     addItem(product)
     setAdded(true)
     setTimeout(() => setAdded(false), 1500)
@@ -94,8 +97,8 @@ export function ProductCard({ product }: { product: Product }) {
           Master x{product.priceTiers.master.quantity}: {formatCOP(product.priceTiers.master.unitPrice)} / und
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {product.stock > 0 ? (
-            <span className="text-accent">En stock · {product.stock} unidades</span>
+          {stock > 0 ? (
+            <span className="text-accent">En stock · {stock} unidades</span>
           ) : (
             <span className="text-destructive">Agotado</span>
           )}
@@ -103,6 +106,7 @@ export function ProductCard({ product }: { product: Product }) {
 
         <Button
           onClick={handleAdd}
+          disabled={stock <= 0}
           className={cn(
             "mt-3 w-full gap-2",
             added
@@ -111,7 +115,7 @@ export function ProductCard({ product }: { product: Product }) {
           )}
           size="sm"
         >
-          {added ? (
+          {stock <= 0 ? "Agotado" : added ? (
             <>
               <Check className="h-4 w-4" /> Agregado
             </>

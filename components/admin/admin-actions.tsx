@@ -8,8 +8,6 @@ import {
   ClipboardList,
   PackagePlus,
   Plus,
-  Receipt,
-  Truck,
   UserPlus,
 } from "lucide-react"
 
@@ -226,35 +224,6 @@ export function NewPurchaseOrderAction() {
   )
 }
 
-export function NewSaleAction() {
-  return (
-    <AdminActionSheet
-      buttonLabel="Nueva venta"
-      title="Nueva venta"
-      description="Crea una venta de mostrador o un pedido manual del ecommerce."
-      icon={Receipt}
-      storageKey="ferreia-admin-sales"
-      successMessage="Venta guardada como borrador local."
-      fields={[
-        { kind: "input", id: "pedido", label: "Pedido", defaultValue: "FE-10232", required: true },
-        { kind: "input", id: "cliente", label: "Cliente", placeholder: "Nombre o empresa", required: true },
-        { kind: "input", id: "fecha", label: "Fecha", type: "date", required: true },
-        { kind: "input", id: "total", label: "Total", placeholder: "$0", required: true },
-        {
-          kind: "select",
-          id: "canal",
-          label: "Canal",
-          placeholder: "Selecciona canal",
-          options: ["Ecommerce", "Mostrador POS", "WhatsApp", "Cotización"],
-          defaultValue: "Mostrador POS",
-          required: true,
-        },
-        { kind: "textarea", id: "items", label: "Ítems", placeholder: "Ej: Taladro 20V x1, Tornillos drywall x2." },
-      ]}
-    />
-  )
-}
-
 export function NewCustomerAction() {
   return (
     <AdminActionSheet
@@ -307,42 +276,6 @@ export function NewSupplierAction() {
           required: true,
         },
         { kind: "textarea", id: "condiciones", label: "Condiciones comerciales", placeholder: "Crédito, tiempos de entrega, descuentos o mínimos de compra." },
-      ]}
-    />
-  )
-}
-
-export function NewShipmentAction() {
-  return (
-    <AdminActionSheet
-      buttonLabel="Nuevo despacho"
-      title="Nuevo despacho"
-      description="Crea una guía operativa para preparar y monitorear entregas."
-      icon={Truck}
-      storageKey="ferreia-admin-shipments"
-      successMessage="Despacho guardado como borrador local."
-      fields={[
-        { kind: "input", id: "guia", label: "Guía", placeholder: "TCC-889202", required: true },
-        { kind: "input", id: "pedido", label: "Pedido", placeholder: "FE-10232", required: true },
-        {
-          kind: "select",
-          id: "transportadora",
-          label: "Transportadora",
-          placeholder: "Selecciona transportadora",
-          options: ["TCC", "Servientrega", "Coordinadora", "Interrapidísimo", "Mensajero local"],
-          required: true,
-        },
-        { kind: "input", id: "destino", label: "Destino", placeholder: "Cali", required: true },
-        {
-          kind: "select",
-          id: "estado",
-          label: "Estado inicial",
-          placeholder: "Selecciona estado",
-          options: ["En bodega", "En tránsito", "En reparto", "Entregado"],
-          defaultValue: "En bodega",
-          required: true,
-        },
-        { kind: "textarea", id: "observaciones", label: "Observaciones", placeholder: "Dirección, contacto de entrega o instrucciones especiales." },
       ]}
     />
   )

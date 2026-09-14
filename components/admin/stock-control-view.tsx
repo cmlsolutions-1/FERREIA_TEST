@@ -7,11 +7,26 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatCOP } from "@/lib/data"
+import { INVENTORY_UPDATED_EVENT } from "@/lib/orders"
 import { initialProductMaster, initialWarehouses, ProductMaster, PRODUCT_STORAGE_KEY, WarehouseRecord, WAREHOUSE_STORAGE_KEY } from "@/lib/product-master"
 
 export function StockControlView() {
   const [products, setProducts] = useState(initialProductMaster); const [warehouses, setWarehouses] = useState(initialWarehouses); const [query, setQuery] = useState(""); const [warehouse, setWarehouse] = useState("todas")
-  useEffect(() => { const p = localStorage.getItem(PRODUCT_STORAGE_KEY); const w = localStorage.getItem(WAREHOUSE_STORAGE_KEY); if (p) setProducts(JSON.parse(p) as ProductMaster[]); if (w) setWarehouses(JSON.parse(w) as WarehouseRecord[]) }, [])
+  useEffect(() => {
+    function load() {
+      const p = localStorage.getItem(PRODUCT_STORAGE_KEY)
+      const w = localStorage.getItem(WAREHOUSE_STORAGE_KEY)
+      if (p) setProducts(JSON.parse(p) as ProductMaster[])
+      if (w) setWarehouses(JSON.parse(w) as WarehouseRecord[])
+    }
+    load()
+    window.addEventListener(INVENTORY_UPDATED_EVENT, load)
+    window.addEventListener("storage", load)
+    return () => {
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, load)
+      window.removeEventListener("storage", load)
+    }
+  }, [])
   const filtered = useMemo(() => products.filter((p) => (warehouse === "todas" || p.warehouse === warehouse) && (!query || [p.reference, p.name, p.sku, p.brand].some((v) => v.toLowerCase().includes(query.toLowerCase())))), [products, query, warehouse])
   return <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Stat icon={Boxes} label="Unidades disponibles" value={filtered.reduce((s, p) => s + p.stock, 0).toLocaleString("es-CO")} /><Stat icon={CircleDollarSign} label="Inventario valorizado" value={formatCOP(filtered.reduce((s, p) => s + p.stock * p.cost, 0))} /><Stat icon={AlertTriangle} label="Bajo mínimo" value={String(filtered.filter((p) => p.stock <= p.stockMin).length)} warning /><Stat icon={Warehouse} label="Bodegas activas" value={String(warehouses.filter((w) => w.active).length)} /></div>
     <Card><CardContent className="p-4"><div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Buscar por referencia, artículo, SKU o marca..." value={query} onChange={(e) => setQuery(e.target.value)} /></div><Select value={warehouse} onValueChange={(v) => v && setWarehouse(v)}><SelectTrigger className="sm:w-56"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todas">Todas las bodegas</SelectItem>{warehouses.filter((w) => w.active).map((w) => <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>)}</SelectContent></Select></div></CardContent></Card>

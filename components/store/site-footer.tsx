@@ -81,7 +81,8 @@ export function SiteFooter() {
             Ayuda
           </h3>
           <ul className="space-y-2 text-sm text-primary-foreground/80">
-            <li><Link href="#" className="hover:text-accent">Envíos y entregas</Link></li>
+            <li><Link href="/rastrear-pedido" className="hover:text-accent">Rastrear pedido</Link></li>
+            <li><Link href="/mi-cuenta" className="hover:text-accent">Mi cuenta</Link></li>
             <li><Link href="#" className="hover:text-accent">Devoluciones</Link></li>
             <li><Link href="#" className="hover:text-accent">Garantías</Link></li>
             <li><Link href="#" className="hover:text-accent">Términos y condiciones</Link></li>

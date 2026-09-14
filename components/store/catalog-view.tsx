@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { useCart } from "@/components/cart-provider"
+import { useLiveInventoryStock } from "@/components/use-live-stock"
 import { CATEGORIES, PRODUCTS, BRANDS, formatCOP, type Product } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -33,7 +34,20 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   const [sort, setSort] = useState("relevancia")
   const [view, setView] = useState<"grid" | "list">("grid")
   const [compare, setCompare] = useState<Product[]>([])
+  const stockBySku = useLiveInventoryStock()
   const query = (initialQuery ?? "").toLowerCase()
+
+  const products = useMemo(
+    () => PRODUCTS.map((product) => ({
+      ...product,
+      stock: stockBySku[product.sku] ?? product.stock,
+    })),
+    [stockBySku],
+  )
+  const comparedProducts = useMemo(
+    () => compare.map((selected) => products.find((product) => product.id === selected.id) ?? selected),
+    [compare, products],
+  )
 
   function toggle(list: string[], set: (v: string[]) => void, value: string) {
     set(list.includes(value) ? list.filter((x) => x !== value) : [...list, value])
@@ -50,7 +64,7 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   }
 
   const filtered = useMemo(() => {
-    let list = PRODUCTS.filter((p) => {
+    let list = products.filter((p) => {
       if (categories.length && !categories.includes(p.category)) return false
       if (brands.length && !brands.includes(p.brand)) return false
       if (p.price > maxPrice) return false
@@ -63,7 +77,7 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
     if (sort === "precio-desc") list = [...list].sort((a, b) => b.price - a.price)
     if (sort === "rating") list = [...list].sort((a, b) => b.rating - a.rating)
     return list
-  }, [categories, brands, maxPrice, onlyStock, sort, query])
+  }, [categories, brands, maxPrice, onlyStock, sort, query, products])
 
   const filters = (
     <div className="space-y-6">
@@ -191,7 +205,7 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
         </div>
       </div>
 
-      {compare.length > 0 && <CompareBar items={compare} onClear={() => setCompare([])} onRemove={(id) => setCompare((p) => p.filter((x) => x.id !== id))} />}
+      {compare.length > 0 && <CompareBar items={comparedProducts} onClear={() => setCompare([])} onRemove={(id) => setCompare((p) => p.filter((x) => x.id !== id))} />}
     </div>
   )
 }
@@ -242,8 +256,13 @@ function ListRow({
               Inner x{product.priceTiers.inner.quantity}: {formatCOP(product.priceTiers.inner.unitPrice)} / und · Master x{product.priceTiers.master.quantity}: {formatCOP(product.priceTiers.master.unitPrice)} / und
             </p>
           </div>
-          <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => addItem(product)}>
-            Agregar
+          <Button
+            size="sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => addItem(product)}
+            disabled={product.stock <= 0}
+          >
+            {product.stock > 0 ? "Agregar" : "Agotado"}
           </Button>
           <Button
             size="sm"

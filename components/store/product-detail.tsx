@@ -23,6 +23,7 @@ import { useCart } from "@/components/cart-provider"
 import { formatCOP, relatedProducts, type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
+import { useLiveStock } from "@/components/use-live-stock"
 
 export function ProductDetail({ product }: { product: Product }) {
   const router = useRouter()
@@ -30,6 +31,7 @@ export function ProductDetail({ product }: { product: Product }) {
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
+  const stock = useLiveStock(product.sku, product.stock)
   const pricing = calculateTieredPrice(product, qty)
 
   const gallery = [
@@ -41,11 +43,13 @@ export function ProductDetail({ product }: { product: Product }) {
   const related = relatedProducts(product)
 
   function handleAdd() {
+    if (stock <= 0 || qty > stock) return
     addItem(product, qty)
     setAdded(true)
     setTimeout(() => setAdded(false), 1500)
   }
   function buyNow() {
+    if (stock <= 0 || qty > stock) return
     addItem(product, qty)
     router.push("/checkout")
   }
@@ -120,7 +124,7 @@ export function ProductDetail({ product }: { product: Product }) {
             )}
           </div>
           <p className="mt-1 text-sm text-accent">
-            {product.stock > 0 ? `Disponible · ${product.stock} unidades en stock` : "Agotado"}
+            {stock > 0 ? `Disponible · ${stock} unidades en stock` : "Agotado"}
           </p>
 
           <div className="mt-4 rounded-xl border border-border bg-card p-4">
@@ -166,17 +170,18 @@ export function ProductDetail({ product }: { product: Product }) {
                 <Minus className="h-4 w-4" />
               </Button>
               <span className="w-10 text-center font-medium">{qty}</span>
-              <Button variant="ghost" size="icon" onClick={() => setQty((q) => q + 1)} aria-label="Sumar">
+              <Button variant="ghost" size="icon" onClick={() => setQty((q) => Math.min(stock, q + 1))} disabled={stock <= 0 || qty >= stock} aria-label="Sumar">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
             <Button
               onClick={handleAdd}
+              disabled={stock <= 0 || qty > stock}
               className={cn("flex-1 gap-2 sm:flex-none", added ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90")}
             >
-              {added ? <><Check className="h-4 w-4" /> Agregado</> : <><ShoppingCart className="h-4 w-4" /> Agregar al carrito</>}
+              {stock <= 0 ? "Agotado" : added ? <><Check className="h-4 w-4" /> Agregado</> : <><ShoppingCart className="h-4 w-4" /> Agregar al carrito</>}
             </Button>
-            <Button onClick={buyNow} className="flex-1 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 sm:flex-none">
+            <Button onClick={buyNow} disabled={stock <= 0 || qty > stock} className="flex-1 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 sm:flex-none">
               <Zap className="h-4 w-4" /> Comprar ahora
             </Button>
           </div>
