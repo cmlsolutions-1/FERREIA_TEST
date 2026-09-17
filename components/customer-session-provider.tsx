@@ -1,9 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { HARDCODED_CUSTOMER_ACCOUNTS } from "@/lib/customer-accounts"
 
-export const CUSTOMER_ACCOUNTS_KEY = "ferreia-customer-accounts-v1"
-export const CUSTOMER_SESSION_KEY = "ferreia-customer-session-v1"
+export const CUSTOMER_ACCOUNTS_KEY = "ferreia-customer-accounts-v2"
+export const CUSTOMER_SESSION_KEY = "ferreia-customer-session-v2"
 
 export type CustomerAccount = {
   id: string
@@ -25,16 +26,6 @@ type CustomerSessionContextValue = {
   logout: () => void
 }
 
-const demoAccount: CustomerAccount = {
-  id: "USR-001",
-  name: "Andrea Gómez",
-  document: "52234567",
-  email: "andrea@ejemplo.com",
-  phone: "+57 310 555 0188",
-  passwordHash: hashPassword("Ferreia123"),
-  createdAt: "2026-01-15T14:00:00.000Z",
-}
-
 const CustomerSessionContext = createContext<CustomerSessionContextValue | null>(null)
 
 function hashPassword(value: string) {
@@ -46,22 +37,42 @@ function hashPassword(value: string) {
   return (hash >>> 0).toString(36)
 }
 
-function readAccounts() {
+function hardcodedAccounts(): CustomerAccount[] {
+  return HARDCODED_CUSTOMER_ACCOUNTS.map(({ password, ...account }) => ({
+    ...account,
+    email: account.email.trim().toLowerCase(),
+    passwordHash: hashPassword(password),
+  }))
+}
+
+function readRegisteredAccounts() {
   try {
     const stored = localStorage.getItem(CUSTOMER_ACCOUNTS_KEY)
-    if (!stored) {
-      localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify([demoAccount]))
-      return [demoAccount]
-    }
-    return JSON.parse(stored) as CustomerAccount[]
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? parsed as CustomerAccount[] : []
   } catch {
-    return [demoAccount]
+    return []
   }
+}
+
+function readAccounts() {
+  const fixed = hardcodedAccounts()
+  const fixedIds = new Set(fixed.map((account) => account.id))
+  const fixedEmails = new Set(fixed.map((account) => account.email))
+  const registered = readRegisteredAccounts().filter((account) =>
+    account?.id
+      && account?.email
+      && account?.passwordHash
+      && !fixedIds.has(account.id)
+      && !fixedEmails.has(account.email.toLowerCase()),
+  )
+  return [...fixed, ...registered]
 }
 
 export function CustomerSessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CustomerAccount | null>(null)
-  const [accounts, setAccounts] = useState<CustomerAccount[]>([demoAccount])
+  const [accounts, setAccounts] = useState<CustomerAccount[]>(() => hardcodedAccounts())
 
   useEffect(() => {
     function syncSession() {
@@ -84,7 +95,11 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
       (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.passwordHash === hashPassword(password),
     )
     if (!account) return "El correo o la contraseña no coinciden."
-    localStorage.setItem(CUSTOMER_SESSION_KEY, account.id)
+    try {
+      localStorage.setItem(CUSTOMER_SESSION_KEY, account.id)
+    } catch {
+      return "El navegador no permitió guardar la sesión."
+    }
     setAccounts(storedAccounts)
     setUser(account)
     return null
@@ -110,8 +125,12 @@ export function CustomerSessionProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     }
     const nextAccounts = [...accounts, account]
-    localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify(nextAccounts))
-    localStorage.setItem(CUSTOMER_SESSION_KEY, account.id)
+    try {
+      localStorage.setItem(CUSTOMER_ACCOUNTS_KEY, JSON.stringify([...readRegisteredAccounts(), account]))
+      localStorage.setItem(CUSTOMER_SESSION_KEY, account.id)
+    } catch {
+      return "No fue posible guardar la cuenta. Revisa que localStorage esté habilitado en el navegador."
+    }
     setAccounts(nextAccounts)
     setUser(account)
     return null
