@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useCart } from "@/components/cart-provider"
 import { formatCOP, type Product } from "@/lib/data"
 import { cn } from "@/lib/utils"
-import { useLiveStock } from "@/components/use-live-stock"
+import { useLiveProduct } from "@/components/use-live-stock"
 
 export function RatingStars({ rating, className }: { rating: number; className?: string }) {
   return (
@@ -26,10 +26,11 @@ export function RatingStars({ rating, className }: { rating: number; className?:
   )
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product: initialProduct }: { product: Product }) {
+  const product = useLiveProduct(initialProduct)
   const { addItem } = useCart()
   const [added, setAdded] = useState(false)
-  const stock = useLiveStock(product.sku, product.stock)
+  const stock = product.stock
 
   function handleAdd() {
     if (stock <= 0) return

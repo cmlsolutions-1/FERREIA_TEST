@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react"
 import { INVENTORY_UPDATED_EVENT } from "@/lib/orders"
 import { PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
+import { applyMasterToStoreProduct, readProductMasterBySku } from "@/lib/store-product-sync"
+import type { Product } from "@/lib/data"
 
 function readStockBySku() {
   try {
@@ -25,9 +28,11 @@ export function useLiveInventoryStock() {
     }
     load()
     window.addEventListener(INVENTORY_UPDATED_EVENT, load)
+    window.addEventListener(PRODUCT_UPDATED_EVENT, load)
     window.addEventListener("storage", load)
     return () => {
       window.removeEventListener(INVENTORY_UPDATED_EVENT, load)
+      window.removeEventListener(PRODUCT_UPDATED_EVENT, load)
       window.removeEventListener("storage", load)
     }
   }, [])
@@ -49,9 +54,28 @@ export function useLiveStock(sku: string, fallback: number) {
     }
     load()
     window.addEventListener(INVENTORY_UPDATED_EVENT, load)
+    window.addEventListener(PRODUCT_UPDATED_EVENT, load)
     window.addEventListener("storage", load)
-    return () => { window.removeEventListener(INVENTORY_UPDATED_EVENT, load); window.removeEventListener("storage", load) }
+    return () => { window.removeEventListener(INVENTORY_UPDATED_EVENT, load); window.removeEventListener(PRODUCT_UPDATED_EVENT, load); window.removeEventListener("storage", load) }
   }, [fallback, sku])
 
   return stock
+}
+
+export function useLiveProductMaster() {
+  const [masterBySku, setMasterBySku] = useState<Record<string, ProductMaster>>({})
+  useEffect(() => {
+    const load = () => setMasterBySku(readProductMasterBySku())
+    load()
+    window.addEventListener(PRODUCT_UPDATED_EVENT, load)
+    window.addEventListener(INVENTORY_UPDATED_EVENT, load)
+    window.addEventListener("storage", load)
+    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, load); window.removeEventListener(INVENTORY_UPDATED_EVENT, load); window.removeEventListener("storage", load) }
+  }, [])
+  return masterBySku
+}
+
+export function useLiveProduct(product: Product) {
+  const masterBySku = useLiveProductMaster()
+  return applyMasterToStoreProduct(product, masterBySku[product.sku])
 }

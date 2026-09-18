@@ -23,15 +23,16 @@ import { useCart } from "@/components/cart-provider"
 import { formatCOP, relatedProducts, type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
-import { useLiveStock } from "@/components/use-live-stock"
+import { useLiveProduct } from "@/components/use-live-stock"
 
-export function ProductDetail({ product }: { product: Product }) {
+export function ProductDetail({ product: initialProduct }: { product: Product }) {
+  const product = useLiveProduct(initialProduct)
   const router = useRouter()
   const { addItem } = useCart()
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
-  const stock = useLiveStock(product.sku, product.stock)
+  const stock = product.stock
   const pricing = calculateTieredPrice(product, qty)
 
   const gallery = [

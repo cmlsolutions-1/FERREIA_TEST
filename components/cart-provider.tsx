@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import type { Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
+import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
+import { applyMasterToStoreProduct, readProductMasterBySku } from "@/lib/store-product-sync"
 
 export type CartLine = {
   product: Product
@@ -29,7 +31,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY)
-      if (stored) setLines(JSON.parse(stored) as CartLine[])
+      if (stored) {
+        const masters = readProductMasterBySku()
+        setLines((JSON.parse(stored) as CartLine[]).map((line) => ({ ...line, product: applyMasterToStoreProduct(line.product, masters[line.product.sku]) })))
+      }
     } finally { setHydrated(true) }
   }, [])
 
@@ -37,15 +42,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (hydrated) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines))
   }, [hydrated, lines])
 
+  useEffect(() => {
+    const updatePrices = () => {
+      const masters = readProductMasterBySku()
+      setLines((previous) => previous.map((line) => ({ ...line, product: applyMasterToStoreProduct(line.product, masters[line.product.sku]) })))
+    }
+    window.addEventListener(PRODUCT_UPDATED_EVENT, updatePrices)
+    return () => window.removeEventListener(PRODUCT_UPDATED_EVENT, updatePrices)
+  }, [])
+
   function addItem(product: Product, qty = 1) {
+    const masters = readProductMasterBySku()
+    const currentProduct = applyMasterToStoreProduct(product, masters[product.sku])
     setLines((prev) => {
-      const existing = prev.find((l) => l.product.id === product.id)
+      const existing = prev.find((l) => l.product.id === currentProduct.id)
       if (existing) {
         return prev.map((l) =>
-          l.product.id === product.id ? { ...l, qty: l.qty + qty } : l,
+          l.product.id === currentProduct.id ? { ...l, product: currentProduct, qty: l.qty + qty } : l,
         )
       }
-      return [...prev, { product, qty }]
+      return [...prev, { product: currentProduct, qty }]
     })
   }
 

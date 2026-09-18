@@ -8,6 +8,15 @@ export type ProductMaster = {
   unit: string; weight: number; cost: number; price: number; taxRate: number; warehouse: string
   stock: number; stockMin: number; stockMax: number; images: string[]; suppliers: string[]
   characteristics: string; active: boolean
+  markupPercent?: number
+  costReview?: {
+    previousCost: number
+    newCost: number
+    purchaseOrderId: string
+    invoiceNumber: string
+    changedAt: string
+    pending: boolean
+  }
 }
 
 export const PRODUCT_STORAGE_KEY = "ferreia-admin-inventory-products-v2"

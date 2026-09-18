@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -152,10 +153,12 @@ export function SiteHeader() {
                   <ChevronDown className="hidden h-3.5 w-3.5 lg:block" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel className="px-3 py-2"><span className="block truncate font-semibold text-foreground">{user.name}</span><span className="block truncate font-normal">{user.email}</span></DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push("/mi-cuenta")}><User />Mi cuenta y pedidos</DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onClick={logout}><LogOut />Cerrar sesión</DropdownMenuItem>
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="px-3 py-2"><span className="block truncate font-semibold text-foreground">{user.name}</span><span className="block truncate font-normal">{user.email}</span></DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push("/mi-cuenta")}><User />Mi cuenta y pedidos</DropdownMenuItem>
+                    <DropdownMenuItem variant="destructive" onClick={logout}><LogOut />Cerrar sesión</DropdownMenuItem>
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (

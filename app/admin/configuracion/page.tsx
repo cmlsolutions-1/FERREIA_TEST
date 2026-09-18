@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { COMPANY, DEPARTAMENTOS } from "@/lib/data"
 import { Building2, Save, ShieldCheck, Store, Truck } from "lucide-react"
+import { PricingSettings } from "@/components/admin/pricing-settings"
 
 export default function ConfiguracionPage() {
   return (
@@ -109,6 +110,7 @@ export default function ConfiguracionPage() {
               </div>
             </CardContent>
           </Card>
+          <PricingSettings />
         </div>
 
         <div className="space-y-4">

@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { useCart } from "@/components/cart-provider"
-import { useLiveInventoryStock } from "@/components/use-live-stock"
+import { useLiveProductMaster } from "@/components/use-live-stock"
+import { applyMasterToStoreProduct } from "@/lib/store-product-sync"
 import { CATEGORIES, PRODUCTS, BRANDS, formatCOP, type Product } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
@@ -34,15 +35,12 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   const [sort, setSort] = useState("relevancia")
   const [view, setView] = useState<"grid" | "list">("grid")
   const [compare, setCompare] = useState<Product[]>([])
-  const stockBySku = useLiveInventoryStock()
+  const masterBySku = useLiveProductMaster()
   const query = (initialQuery ?? "").toLowerCase()
 
   const products = useMemo(
-    () => PRODUCTS.map((product) => ({
-      ...product,
-      stock: stockBySku[product.sku] ?? product.stock,
-    })),
-    [stockBySku],
+    () => PRODUCTS.map((product) => applyMasterToStoreProduct(product, masterBySku[product.sku])),
+    [masterBySku],
   )
   const comparedProducts = useMemo(
     () => compare.map((selected) => products.find((product) => product.id === selected.id) ?? selected),

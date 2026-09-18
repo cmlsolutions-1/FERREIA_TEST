@@ -20,6 +20,7 @@ import {
   Store,
   Menu,
   X,
+  LogOut,
 } from "lucide-react"
 
 const NAV = [
@@ -44,7 +45,7 @@ const INVENTORY_OPERATIONS = [
   { href: "/admin/inventario/salidas", label: "Salida de inventarios" },
 ]
 
-export function AdminSidebar() {
+export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [inventoryOpen, setInventoryOpen] = useState(pathname.startsWith("/admin/inventario"))
@@ -128,6 +129,14 @@ export function AdminSidebar() {
             <Store className="h-4 w-4 shrink-0" />
             Ir a la tienda
           </Link>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
     </>
