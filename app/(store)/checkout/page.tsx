@@ -14,6 +14,8 @@ import { DEPARTAMENTOS, formatCOP } from "@/lib/data"
 import type { FerreiaOrder, PaymentStatus } from "@/lib/orders"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
+import { useShippingSettings } from "@/components/use-shipping-settings"
+import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
 const emptyForm: CustomerForm = { name: "", document: "", email: "", phone: "", address: "", city: "", department: "" }
@@ -22,6 +24,7 @@ export default function CheckoutPage() {
   const { lines, subtotal, count, clear } = useCart()
   const { user } = useCustomerSession()
   const { createOrder } = useOrders()
+  const shippingSettings = useShippingSettings()
   const [shipping, setShipping] = useState<"estandar" | "express">("estandar")
   const [payment, setPayment] = useState<"tarjeta" | "pse" | "contraentrega">("tarjeta")
   const [form, setForm] = useState<CustomerForm>(emptyForm)
@@ -34,7 +37,16 @@ export default function CheckoutPage() {
     if (user) setForm((current) => ({ ...current, name: user.name, document: user.document, email: user.email, phone: user.phone }))
   }, [user])
 
-  const shippingCost = shipping === "express" ? 18000 : subtotal >= 150000 ? 0 : 12000
+  useEffect(() => {
+    if (!shippingSettings.standard.active && shippingSettings.express.active) setShipping("express")
+    if (!shippingSettings.express.active && shippingSettings.standard.active) setShipping("estandar")
+  }, [shippingSettings.standard.active, shippingSettings.express.active])
+
+  const standardQuote = calculateShipping(shippingSettings, { subtotal, quantity: count, method: "standard", department: form.department })
+  const expressQuote = calculateShipping(shippingSettings, { subtotal, quantity: count, method: "express", department: form.department })
+  const selectedQuote = shipping === "express" ? expressQuote : standardQuote
+  const shippingProgress = freeShippingProgress(shippingSettings, subtotal, count)
+  const shippingCost = selectedQuote.cost
   const tax = Math.round(subtotal * 0.19)
   const total = subtotal + tax + shippingCost
 
@@ -44,6 +56,7 @@ export default function CheckoutPage() {
 
   function confirmOrder(event: React.FormEvent) {
     event.preventDefault()
+    if (!selectedQuote.available) { setError("No hay un método de envío disponible para completar el pedido."); return }
     if (submissionLocked.current) return
     submissionLocked.current = true
     setProcessing(true)
@@ -89,10 +102,10 @@ export default function CheckoutPage() {
       {!user && <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 text-sm"><p className="font-semibold text-primary">Compra como invitado</p><p className="mt-1 text-muted-foreground">No necesitas crear una cuenta. Tu correo y el número del pedido permitirán consultar el envío.</p></div>}
       <Section title="Datos del cliente" icon={Building2}><div className="grid gap-4 sm:grid-cols-2"><Field label="Nombre completo" required><Input required value={form.name} onChange={(event) => update("name", event.target.value)} placeholder="Juan Pérez" /></Field><Field label="Documento (CC / NIT)" required><Input required value={form.document} onChange={(event) => update("document", event.target.value)} placeholder="1234567890" /></Field><Field label="Correo electrónico" required><Input required type="email" value={form.email} onChange={(event) => update("email", event.target.value)} placeholder="correo@ejemplo.com" /></Field><Field label="Teléfono" required><Input required value={form.phone} onChange={(event) => update("phone", event.target.value)} placeholder="+57 300 000 0000" /></Field></div></Section>
       <Section title="Dirección de envío" icon={Truck}><div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Field label="Dirección" required><Input required value={form.address} onChange={(event) => update("address", event.target.value)} placeholder="Cra. 10 #20-30, Apto 401" /></Field></div><Field label="Ciudad" required><Input required value={form.city} onChange={(event) => update("city", event.target.value)} placeholder="Bogotá" /></Field><Field label="Departamento" required><Select required value={form.department} onValueChange={(value) => value && update("department", value)}><SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger><SelectContent>{DEPARTAMENTOS.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}</SelectContent></Select></Field></div></Section>
-      <Section title="Método de envío" icon={Package}><div className="grid gap-3 sm:grid-cols-2"><OptionCard active={shipping === "estandar"} onClick={() => setShipping("estandar")} title="Estándar (3-5 días)" desc={subtotal >= 150000 ? "Gratis" : formatCOP(12000)} /><OptionCard active={shipping === "express"} onClick={() => setShipping("express")} title="Express (24-48h)" desc={formatCOP(18000)} /></div></Section>
+      <Section title="Método de envío" icon={Package}>{shippingSettings.enabled ? <><div className="grid gap-3 sm:grid-cols-2">{shippingSettings.standard.active && <OptionCard active={shipping === "estandar"} onClick={() => setShipping("estandar")} title={`Estándar (${shippingSettings.standard.minDays}-${shippingSettings.standard.maxDays} días)`} desc={standardQuote.free ? "Gratis" : formatCOP(standardQuote.cost)} />}{shippingSettings.express.active && <OptionCard active={shipping === "express"} onClick={() => setShipping("express")} title={`Express (${shippingSettings.express.minDays}-${shippingSettings.express.maxDays} días)`} desc={expressQuote.free ? "Gratis" : formatCOP(expressQuote.cost)} />}</div><div className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{form.department ? `Tarifa para ${form.department}${selectedQuote.zone ? ` · ${selectedQuote.zone.name}` : ""}.` : "Selecciona el departamento para confirmar la tarifa exacta."}{!selectedQuote.free && shippingSettings.freeShipping.enabled && <span> {shippingSettings.freeShipping.mode === "all" ? "Condiciones pendientes:" : "Envío gratis al cumplir una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</span>}</div></> : <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Los envíos se encuentran temporalmente deshabilitados.</p>}</Section>
       <Section title="Método de pago" icon={CreditCard}><div className="grid gap-3 sm:grid-cols-3"><OptionCard active={payment === "tarjeta"} onClick={() => setPayment("tarjeta")} title="Tarjeta" desc="Crédito / débito" icon={CreditCard} /><OptionCard active={payment === "pse"} onClick={() => setPayment("pse")} title="PSE" desc="Débito bancario" icon={Building2} /><OptionCard active={payment === "contraentrega"} onClick={() => setPayment("contraentrega")} title="Contra entrega" desc="Paga al recibir" icon={Banknote} /></div>{payment === "tarjeta" && <div className="mt-4 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Field label="Número de tarjeta"><Input placeholder="0000 0000 0000 0000" /></Field></div><Field label="Vencimiento"><Input placeholder="MM/AA" /></Field><Field label="CVV"><Input placeholder="123" /></Field></div>}</Section>
     </div>
-      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div><dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? "Creando pedido..." : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">Al confirmar, las unidades se descuentan del inventario.</p></aside>
+      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div><dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing || !selectedQuote.available} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? "Creando pedido..." : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">Al confirmar, las unidades se descuentan del inventario.</p></aside>
     </form>
   </div>
 }

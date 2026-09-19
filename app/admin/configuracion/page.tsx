@@ -2,14 +2,14 @@ import { PageHeader } from "@/components/admin/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
-import { COMPANY, DEPARTAMENTOS } from "@/lib/data"
+import { COMPANY } from "@/lib/data"
 import { Building2, Save, ShieldCheck, Store, Truck } from "lucide-react"
 import { PricingSettings } from "@/components/admin/pricing-settings"
+import Link from "next/link"
 
 export default function ConfiguracionPage() {
   return (
@@ -62,31 +62,8 @@ export default function ConfiguracionPage() {
               <CardTitle>Envíos y cobertura</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="free-shipping">Envío gratis desde</Label>
-                  <Input id="free-shipping" defaultValue="$250.000" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="delivery-days">Promesa entrega</Label>
-                  <Input id="delivery-days" defaultValue="2 a 5 días hábiles" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="local-pickup">Recogida en tienda</Label>
-                  <Input id="local-pickup" defaultValue="Disponible" />
-                </div>
-              </div>
-              <div>
-                <p className="mb-2 text-sm font-medium">Departamentos activos</p>
-                <div className="grid max-h-48 gap-2 overflow-y-auto rounded-lg border border-border p-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {DEPARTAMENTOS.map((departamento) => (
-                    <Label key={departamento} className="items-center text-sm font-normal">
-                      <Checkbox defaultChecked />
-                      {departamento}
-                    </Label>
-                  ))}
-                </div>
-              </div>
+              <p className="text-sm text-muted-foreground">Los costos, zonas, tiempos y condiciones de envío gratis se administran en su módulo dedicado y se reflejan inmediatamente en la tienda.</p>
+              <Button asChild variant="outline"><Link href="/admin/envios">Abrir parametrización de envíos</Link></Button>
             </CardContent>
           </Card>
 

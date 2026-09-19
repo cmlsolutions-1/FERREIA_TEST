@@ -24,16 +24,21 @@ import { formatCOP, relatedProducts, type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { useLiveProduct } from "@/components/use-live-stock"
+import { useShippingSettings } from "@/components/use-shipping-settings"
+import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
 
 export function ProductDetail({ product: initialProduct }: { product: Product }) {
   const product = useLiveProduct(initialProduct)
   const router = useRouter()
   const { addItem } = useCart()
+  const shippingSettings = useShippingSettings()
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
   const stock = product.stock
   const pricing = calculateTieredPrice(product, qty)
+  const shippingQuote = calculateShipping(shippingSettings, { subtotal: pricing.total, quantity: qty })
+  const shippingProgress = freeShippingProgress(shippingSettings, pricing.total, qty)
 
   const gallery = [
     product.image,
@@ -164,6 +169,8 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
           </div>
 
           <p className="mt-4 text-muted-foreground text-pretty">{product.description}</p>
+
+          <div className={`mt-4 rounded-xl border p-4 ${shippingQuote.free ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"}`}><div className="flex items-center justify-between gap-3"><p className="flex items-center gap-2 font-semibold text-primary"><Truck className="h-5 w-5 text-accent" />Envío estándar estimado</p><b className={shippingQuote.free ? "text-emerald-700" : "text-sky-700"}>{!shippingQuote.available ? "No disponible" : shippingQuote.free ? "Gratis" : `Desde ${formatCOP(shippingQuote.cost)}`}</b></div><p className="mt-1 text-xs text-muted-foreground">Entrega entre {shippingQuote.method.minDays} y {shippingQuote.method.maxDays} días hábiles. El valor exacto depende del departamento.</p>{shippingQuote.available && !shippingQuote.free && shippingSettings.freeShipping.enabled && <p className="mt-2 text-xs font-medium text-accent">{shippingSettings.freeShipping.mode === "all" ? "Para envío gratis completa las condiciones:" : "Obtén envío gratis al alcanzar una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</p>}</div>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-lg border border-border">

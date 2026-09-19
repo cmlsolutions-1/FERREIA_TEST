@@ -11,6 +11,7 @@ import {
   type OrderStatus,
 } from "@/lib/orders"
 import { initialProductMaster, PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { readShippingSettings } from "@/lib/shipping"
 
 type OrderUpdate = Partial<Pick<FerreiaOrder, "carrier" | "trackingNumber" | "estimatedFrom" | "estimatedTo" | "currentLocation" | "status" | "paymentStatus">>
 
@@ -103,6 +104,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     if (inventoryError) return { order: null, error: inventoryError }
 
     const createdAt = new Date()
+    const shippingSettings = readShippingSettings()
+    const deliveryMethod = input.shippingMethod === "Express" ? shippingSettings.express : shippingSettings.standard
     const status: OrderStatus = input.paymentStatus === "Pagado" ? "Pago confirmado" : "Pedido confirmado"
     const id = nextOrderId(orders)
     const timeline: FerreiaOrder["timeline"] = [
@@ -132,8 +135,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       createdAt: createdAt.toISOString(),
       carrier: "Por asignar",
       trackingNumber: "",
-      estimatedFrom: addDays(createdAt, input.shippingMethod === "Express" ? 1 : 3),
-      estimatedTo: addDays(createdAt, input.shippingMethod === "Express" ? 2 : 5),
+      estimatedFrom: addDays(createdAt, deliveryMethod.minDays),
+      estimatedTo: addDays(createdAt, deliveryMethod.maxDays),
       currentLocation: "Pedido recibido en FERREIA",
       status,
       timeline,

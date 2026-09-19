@@ -1,17 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { Minus, Plus, Trash2, ShoppingCart, ArrowRight, Tag } from "lucide-react"
+import { Minus, Plus, Trash2, ShoppingCart, ArrowRight, Tag, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCart } from "@/components/cart-provider"
 import { formatCOP } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
+import { useShippingSettings } from "@/components/use-shipping-settings"
+import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
 
 export default function CartPage() {
   const { lines, subtotal, setQty, removeItem, count } = useCart()
+  const shippingSettings = useShippingSettings()
   const iva = Math.round(subtotal * 0.19)
-  const envio = subtotal >= 150000 || subtotal === 0 ? 0 : 12000
+  const shippingQuote = calculateShipping(shippingSettings, { subtotal, quantity: count })
+  const shippingProgress = freeShippingProgress(shippingSettings, subtotal, count)
+  const envio = subtotal === 0 ? 0 : shippingQuote.cost
   const total = subtotal + iva + envio
 
   if (count === 0) {
@@ -102,6 +107,7 @@ export default function CartPage() {
         {/* Summary */}
         <aside className="h-fit rounded-xl border border-border bg-card p-5">
           <h2 className="font-semibold text-primary">Resumen del pedido</h2>
+          <div className={`mt-3 rounded-lg p-3 text-sm ${shippingQuote.free ? "bg-emerald-50 text-emerald-800" : "bg-sky-50 text-sky-900"}`}><p className="flex items-center gap-2 font-semibold"><Truck className="h-4 w-4" />{!shippingQuote.available ? "Envío temporalmente no disponible" : shippingQuote.free ? "Tu envío estándar es gratis" : `Envío estándar desde ${formatCOP(envio)}`}</p>{shippingQuote.available && !shippingQuote.free && shippingSettings.freeShipping.enabled && <p className="mt-1 text-xs">{shippingSettings.freeShipping.mode === "all" ? "Para obtenerlo gratis debes completar las condiciones pendientes." : "Obtén envío gratis al completar una de estas condiciones."}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` Faltan ${formatCOP(shippingProgress.amountRemaining)}.`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` Faltan ${shippingProgress.quantityRemaining} unidades.`}</p>}<p className="mt-1 text-[11px] opacity-75">El valor exacto se confirma según el departamento en el checkout.</p></div>
           <div className="mt-3 flex gap-2">
             <div className="relative flex-1">
               <Tag className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
