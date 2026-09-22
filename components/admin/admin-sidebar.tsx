@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Receipt,
   CreditCard,
+  BadgePercent,
   Truck,
   Users,
   PackageCheck,
@@ -28,6 +29,7 @@ import {
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/articulos", label: "Catálogo de artículos", icon: PackagePlus },
+  { href: "/admin/promociones", label: "Promociones y outlet", icon: BadgePercent },
   { href: "/admin/inventario", label: "Inventario", icon: Boxes },
   { href: "/admin/compras", label: "Compras", icon: ShoppingCart },
   { href: "/admin/ventas", label: "Ventas", icon: Receipt },

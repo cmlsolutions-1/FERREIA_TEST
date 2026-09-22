@@ -1,5 +1,6 @@
 import type { Product } from "@/lib/data"
 import { PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { promotionStatus, type Promotion } from "@/lib/promotions"
 
 export function readProductMasterBySku() {
   if (typeof window === "undefined") return {} as Record<string, ProductMaster>
@@ -9,16 +10,16 @@ export function readProductMasterBySku() {
   } catch { return {} as Record<string, ProductMaster> }
 }
 
-export function applyMasterToStoreProduct(product: Product, master?: ProductMaster): Product {
-  if (!master) return product
-  const price = master.price
-  const priceChanged = price !== product.price
+export function applyMasterToStoreProduct(product: Product, master: ProductMaster | undefined, promotion: Promotion | null): Product {
+  const basePrice = master?.price ?? product.price
+  const activePromotion = promotion && promotionStatus(promotion, basePrice) === "vigente" ? promotion : null
+  const price = activePromotion?.salePrice ?? basePrice
   return {
     ...product,
-    stock: master.stock,
+    stock: master?.stock ?? product.stock,
     price,
-    oldPrice: !priceChanged && product.oldPrice && product.oldPrice > price ? product.oldPrice : undefined,
-    badge: priceChanged && product.badge === "Oferta" ? undefined : product.badge,
+    oldPrice: activePromotion?.regularPrice,
+    badge: activePromotion ? activePromotion.kind === "outlet" ? "Outlet" : "Oferta" : product.badge === "Oferta" || product.badge === "Outlet" ? undefined : product.badge,
     priceTiers: {
       unit: { ...product.priceTiers.unit, unitPrice: price },
       inner: { ...product.priceTiers.inner, unitPrice: Math.round(price * 0.9) },

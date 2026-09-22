@@ -57,7 +57,7 @@ export type Product = {
   material?: string
   image: string
   priceTiers: ProductPriceTiers
-  badge?: "Más vendido" | "Oferta" | "Nuevo"
+  badge?: "Más vendido" | "Oferta" | "Outlet" | "Nuevo"
   description: string
   specs: { label: string; value: string }[]
   compatibilities: string[]

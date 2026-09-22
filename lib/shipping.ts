@@ -66,7 +66,7 @@ export function calculateShipping(settings: ShippingSettings, input: { subtotal:
   const methodId = input.method ?? "standard"
   const method = settings[methodId]
   const zone = findShippingZone(settings, input.department)
-  const available = settings.enabled && method.active
+  const available = settings.enabled && method.active && (!input.department || Boolean(zone))
   const free = method.freeShippingEligible && qualifiesForFreeShipping(settings, input.subtotal, input.quantity)
   const cost = !available || free ? 0 : Math.max(0, method.baseCost + (zone?.surcharge ?? 0))
   return { cost, free: available && free, available, methodId, method, zone, exact: Boolean(input.department) }

@@ -204,6 +204,7 @@ export function SiteHeader() {
             >
               <Sparkles className="h-4 w-4" /> Todo el catálogo
             </Link>
+            <Link href="/promociones" className="shrink-0 whitespace-nowrap rounded-md bg-rose-50 px-3 py-1.5 font-semibold text-rose-700 hover:bg-rose-100">Promociones y Outlet</Link>
             {CATEGORIES.map((c) => (
               <Link
                 key={c.slug}
@@ -242,6 +243,7 @@ function MobileNav() {
           <Link href="/catalogo" className="rounded-md px-3 py-2 font-medium text-accent">
             Todo el catálogo
           </Link>
+          <Link href="/promociones" className="rounded-md px-3 py-2 font-semibold text-rose-700 hover:bg-rose-50">Promociones y Outlet</Link>
           {CATEGORIES.map((c) => (
             <Link
               key={c.slug}

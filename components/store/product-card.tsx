@@ -59,6 +59,7 @@ export function ProductCard({ product: initialProduct }: { product: Product }) {
                 className={cn(
                   "border-0 text-xs",
                   product.badge === "Oferta" && "bg-destructive text-white",
+                  product.badge === "Outlet" && "bg-violet-700 text-white",
                   product.badge === "Más vendido" && "bg-accent text-accent-foreground",
                   product.badge === "Nuevo" && "bg-primary text-primary-foreground",
                 )}

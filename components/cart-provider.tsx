@@ -1,10 +1,12 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import type { Product } from "@/lib/data"
+import { PRODUCTS, type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
 import { applyMasterToStoreProduct, readProductMasterBySku } from "@/lib/store-product-sync"
+import { promotionBySku, PROMOTIONS_STORAGE_KEY, PROMOTIONS_UPDATED_EVENT, readPromotions } from "@/lib/promotions"
+import { PRODUCT_STORAGE_KEY } from "@/lib/product-master"
 
 export type CartLine = {
   product: Product
@@ -33,7 +35,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(CART_STORAGE_KEY)
       if (stored) {
         const masters = readProductMasterBySku()
-        setLines((JSON.parse(stored) as CartLine[]).map((line) => ({ ...line, product: applyMasterToStoreProduct(line.product, masters[line.product.sku]) })))
+        const promotions = promotionBySku(readPromotions())
+        setLines((JSON.parse(stored) as CartLine[]).map((line) => ({ ...line, product: applyMasterToStoreProduct(PRODUCTS.find((product) => product.sku === line.product.sku) ?? line.product, masters[line.product.sku], promotions[line.product.sku] ?? null) })))
       }
     } finally { setHydrated(true) }
   }, [])
@@ -45,15 +48,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const updatePrices = () => {
       const masters = readProductMasterBySku()
-      setLines((previous) => previous.map((line) => ({ ...line, product: applyMasterToStoreProduct(line.product, masters[line.product.sku]) })))
+      const promotions = promotionBySku(readPromotions())
+      setLines((previous) => previous.map((line) => ({ ...line, product: applyMasterToStoreProduct(PRODUCTS.find((product) => product.sku === line.product.sku) ?? line.product, masters[line.product.sku], promotions[line.product.sku] ?? null) })))
     }
+    const onStorage = (event: StorageEvent) => { if (event.key === PRODUCT_STORAGE_KEY || event.key === PROMOTIONS_STORAGE_KEY) updatePrices() }
     window.addEventListener(PRODUCT_UPDATED_EVENT, updatePrices)
-    return () => window.removeEventListener(PRODUCT_UPDATED_EVENT, updatePrices)
+    window.addEventListener(PROMOTIONS_UPDATED_EVENT, updatePrices)
+    window.addEventListener("storage", onStorage)
+    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, updatePrices); window.removeEventListener(PROMOTIONS_UPDATED_EVENT, updatePrices); window.removeEventListener("storage", onStorage) }
   }, [])
 
   function addItem(product: Product, qty = 1) {
     const masters = readProductMasterBySku()
-    const currentProduct = applyMasterToStoreProduct(product, masters[product.sku])
+    const promotions = promotionBySku(readPromotions())
+    const currentProduct = applyMasterToStoreProduct(PRODUCTS.find((item) => item.sku === product.sku) ?? product, masters[product.sku], promotions[product.sku] ?? null)
     setLines((prev) => {
       const existing = prev.find((l) => l.product.id === currentProduct.id)
       if (existing) {

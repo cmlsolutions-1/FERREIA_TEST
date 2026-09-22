@@ -14,7 +14,8 @@ export default function CartPage() {
   const { lines, subtotal, setQty, removeItem, count } = useCart()
   const shippingSettings = useShippingSettings()
   const iva = Math.round(subtotal * 0.19)
-  const shippingQuote = calculateShipping(shippingSettings, { subtotal, quantity: count })
+  const shippingMethod = shippingSettings.standard.active ? "standard" : "express"
+  const shippingQuote = calculateShipping(shippingSettings, { subtotal, quantity: count, method: shippingMethod })
   const shippingProgress = freeShippingProgress(shippingSettings, subtotal, count)
   const envio = subtotal === 0 ? 0 : shippingQuote.cost
   const total = subtotal + iva + envio
@@ -107,7 +108,7 @@ export default function CartPage() {
         {/* Summary */}
         <aside className="h-fit rounded-xl border border-border bg-card p-5">
           <h2 className="font-semibold text-primary">Resumen del pedido</h2>
-          <div className={`mt-3 rounded-lg p-3 text-sm ${shippingQuote.free ? "bg-emerald-50 text-emerald-800" : "bg-sky-50 text-sky-900"}`}><p className="flex items-center gap-2 font-semibold"><Truck className="h-4 w-4" />{!shippingQuote.available ? "Envío temporalmente no disponible" : shippingQuote.free ? "Tu envío estándar es gratis" : `Envío estándar desde ${formatCOP(envio)}`}</p>{shippingQuote.available && !shippingQuote.free && shippingSettings.freeShipping.enabled && <p className="mt-1 text-xs">{shippingSettings.freeShipping.mode === "all" ? "Para obtenerlo gratis debes completar las condiciones pendientes." : "Obtén envío gratis al completar una de estas condiciones."}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` Faltan ${formatCOP(shippingProgress.amountRemaining)}.`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` Faltan ${shippingProgress.quantityRemaining} unidades.`}</p>}<p className="mt-1 text-[11px] opacity-75">El valor exacto se confirma según el departamento en el checkout.</p></div>
+          <div className={`mt-3 rounded-lg p-3 text-sm ${shippingQuote.free ? "bg-emerald-50 text-emerald-800" : "bg-sky-50 text-sky-900"}`}><p className="flex items-center gap-2 font-semibold"><Truck className="h-4 w-4" />{!shippingQuote.available ? "Envío temporalmente no disponible" : shippingQuote.free ? `Tu envío ${shippingMethod === "standard" ? "estándar" : "express"} es gratis` : `Envío ${shippingMethod === "standard" ? "estándar" : "express"} desde ${formatCOP(envio)}`}</p>{shippingQuote.available && !shippingQuote.free && shippingQuote.method.freeShippingEligible && shippingSettings.freeShipping.enabled && <p className="mt-1 text-xs">{shippingSettings.freeShipping.mode === "all" ? "Para obtenerlo gratis debes completar las condiciones pendientes." : "Obtén envío gratis al completar una de estas condiciones."}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` Faltan ${formatCOP(shippingProgress.amountRemaining)}.`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` Faltan ${shippingProgress.quantityRemaining} unidades.`}</p>}<p className="mt-1 text-[11px] opacity-75">El valor exacto se confirma según el departamento en el checkout.</p></div>
           <div className="mt-3 flex gap-2">
             <div className="relative flex-1">
               <Tag className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -126,7 +127,7 @@ export default function CartPage() {
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Envío</dt>
-              <dd className="font-medium">{envio === 0 ? "Gratis" : formatCOP(envio)}</dd>
+              <dd className="font-medium">{!shippingQuote.available ? "No disponible" : envio === 0 ? "Gratis" : formatCOP(envio)}</dd>
             </div>
             <div className="mt-2 flex justify-between border-t border-border pt-3 text-base">
               <dt className="font-semibold text-primary">Total</dt>

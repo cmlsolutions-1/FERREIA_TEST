@@ -37,7 +37,8 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
   const [added, setAdded] = useState(false)
   const stock = product.stock
   const pricing = calculateTieredPrice(product, qty)
-  const shippingQuote = calculateShipping(shippingSettings, { subtotal: pricing.total, quantity: qty })
+  const shippingMethod = shippingSettings.standard.active ? "standard" : "express"
+  const shippingQuote = calculateShipping(shippingSettings, { subtotal: pricing.total, quantity: qty, method: shippingMethod })
   const shippingProgress = freeShippingProgress(shippingSettings, pricing.total, qty)
 
   const gallery = [
@@ -128,6 +129,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
                 {formatCOP(product.oldPrice)}
               </span>
             )}
+            {product.oldPrice && product.oldPrice > product.price && <Badge className="border-0 bg-rose-600 text-white">−{Math.round((1 - product.price / product.oldPrice) * 100)}%</Badge>}
           </div>
           <p className="mt-1 text-sm text-accent">
             {stock > 0 ? `Disponible · ${stock} unidades en stock` : "Agotado"}
@@ -170,7 +172,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
 
           <p className="mt-4 text-muted-foreground text-pretty">{product.description}</p>
 
-          <div className={`mt-4 rounded-xl border p-4 ${shippingQuote.free ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"}`}><div className="flex items-center justify-between gap-3"><p className="flex items-center gap-2 font-semibold text-primary"><Truck className="h-5 w-5 text-accent" />Envío estándar estimado</p><b className={shippingQuote.free ? "text-emerald-700" : "text-sky-700"}>{!shippingQuote.available ? "No disponible" : shippingQuote.free ? "Gratis" : `Desde ${formatCOP(shippingQuote.cost)}`}</b></div><p className="mt-1 text-xs text-muted-foreground">Entrega entre {shippingQuote.method.minDays} y {shippingQuote.method.maxDays} días hábiles. El valor exacto depende del departamento.</p>{shippingQuote.available && !shippingQuote.free && shippingSettings.freeShipping.enabled && <p className="mt-2 text-xs font-medium text-accent">{shippingSettings.freeShipping.mode === "all" ? "Para envío gratis completa las condiciones:" : "Obtén envío gratis al alcanzar una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</p>}</div>
+          <div className={`mt-4 rounded-xl border p-4 ${shippingQuote.free ? "border-emerald-200 bg-emerald-50" : "border-sky-200 bg-sky-50"}`}><div className="flex items-center justify-between gap-3"><p className="flex items-center gap-2 font-semibold text-primary"><Truck className="h-5 w-5 text-accent" />Envío {shippingMethod === "standard" ? "estándar" : "express"} estimado</p><b className={shippingQuote.free ? "text-emerald-700" : "text-sky-700"}>{!shippingQuote.available ? "No disponible" : shippingQuote.free ? "Gratis" : `Desde ${formatCOP(shippingQuote.cost)}`}</b></div><p className="mt-1 text-xs text-muted-foreground">{shippingQuote.available ? `Entrega entre ${shippingQuote.method.minDays} y ${shippingQuote.method.maxDays} días hábiles. El valor exacto depende del departamento.` : "No hay métodos de envío activos en este momento."}</p>{shippingQuote.available && !shippingQuote.free && shippingQuote.method.freeShippingEligible && shippingSettings.freeShipping.enabled && <p className="mt-2 text-xs font-medium text-accent">{shippingSettings.freeShipping.mode === "all" ? "Para envío gratis completa las condiciones:" : "Obtén envío gratis al alcanzar una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</p>}</div>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-lg border border-border">
@@ -196,7 +198,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
 
           <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-4 text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="h-4 w-4 text-accent" /> Envío a toda Colombia
+              <Truck className="h-4 w-4 text-accent" /> Envío sujeto a cobertura
             </span>
             <span className="flex items-center gap-2 text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-accent" /> Garantía incluida

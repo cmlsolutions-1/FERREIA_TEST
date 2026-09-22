@@ -14,6 +14,7 @@ import {
   Quote,
 } from "lucide-react"
 import { HomeHero } from "@/components/store/home-hero"
+import { PromotionsCatalog } from "@/components/store/promotions-catalog"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { Button } from "@/components/ui/button"
 import { CATEGORIES, PRODUCTS, BRANDS, TESTIMONIALS } from "@/lib/data"
@@ -41,7 +42,6 @@ function SectionHeader({ title, href }: { title: string; href?: string }) {
 export default function HomePage() {
   const destacados = PRODUCTS.slice(0, 5)
   const masVendidos = PRODUCTS.filter((p) => p.badge === "Más vendido")
-  const ofertas = PRODUCTS.filter((p) => p.oldPrice)
 
   return (
     <>
@@ -76,10 +76,10 @@ export default function HomePage() {
           <div className="relative overflow-hidden rounded-2xl bg-accent p-8 text-accent-foreground">
             <h3 className="text-2xl font-bold text-balance">Temporada de remodelación</h3>
             <p className="mt-2 max-w-xs text-accent-foreground/90">
-              Hasta 30% de descuento en pinturas, acabados e iluminación.
+              Encuentra precios especiales en productos seleccionados de nuestra tienda.
             </p>
             <Button asChild className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link href="/catalogo?categoria=pinturas-acabados">Ver ofertas</Link>
+              <Link href="/promociones">Ver ofertas</Link>
             </Button>
           </div>
           <div className="relative overflow-hidden rounded-2xl bg-primary p-8 text-primary-foreground">
@@ -155,17 +155,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Offers */}
-      <section className="bg-secondary py-12">
-        <div className="mx-auto max-w-7xl px-4">
-          <SectionHeader title="Ofertas especiales" href="/catalogo" />
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-            {ofertas.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </div>
-      </section>
+      <PromotionsCatalog compact />
 
       {/* Brands */}
       <section className="mx-auto max-w-7xl px-4 py-12">

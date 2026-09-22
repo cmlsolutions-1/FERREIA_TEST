@@ -5,7 +5,8 @@ import { INVENTORY_UPDATED_EVENT } from "@/lib/orders"
 import { PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
 import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
 import { applyMasterToStoreProduct, readProductMasterBySku } from "@/lib/store-product-sync"
-import type { Product } from "@/lib/data"
+import { usePromotionsBySku } from "@/components/use-promotions"
+import { PRODUCTS, type Product } from "@/lib/data"
 
 function readStockBySku() {
   try {
@@ -77,5 +78,7 @@ export function useLiveProductMaster() {
 
 export function useLiveProduct(product: Product) {
   const masterBySku = useLiveProductMaster()
-  return applyMasterToStoreProduct(product, masterBySku[product.sku])
+  const promotionsBySku = usePromotionsBySku()
+  const original = PRODUCTS.find((item) => item.sku === product.sku) ?? product
+  return applyMasterToStoreProduct(original, masterBySku[product.sku], promotionsBySku[product.sku] ?? null)
 }
