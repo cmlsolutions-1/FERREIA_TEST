@@ -17,15 +17,15 @@ export type Category = {
   count: number
 }
 
-export const CATEGORIES: Category[] = [
-  { slug: "herramientas-manuales", name: "Herramientas Manuales", icon: "Wrench", count: 248 },
-  { slug: "herramientas-electricas", name: "Herramientas Eléctricas", icon: "Drill", count: 186 },
-  { slug: "iluminacion", name: "Iluminación", icon: "Lightbulb", count: 142 },
-  { slug: "carpinteria", name: "Carpintería", icon: "Hammer", count: 97 },
-  { slug: "tornilleria", name: "Tornillería", icon: "Bolt", count: 312 },
-  { slug: "cerrajeria", name: "Cerrajería", icon: "KeyRound", count: 88 },
-  { slug: "seguridad-industrial", name: "Seguridad Industrial", icon: "HardHat", count: 134 },
-  { slug: "pinturas-acabados", name: "Pinturas y Acabados", icon: "PaintRoller", count: 121 },
+const CATEGORY_DEFINITIONS: Omit<Category, "count">[] = [
+  { slug: "herramientas-manuales", name: "Herramientas Manuales", icon: "Wrench" },
+  { slug: "herramientas-electricas", name: "Herramientas Eléctricas", icon: "Drill" },
+  { slug: "iluminacion", name: "Iluminación", icon: "Lightbulb" },
+  { slug: "carpinteria", name: "Carpintería", icon: "Hammer" },
+  { slug: "tornilleria", name: "Tornillería", icon: "Bolt" },
+  { slug: "cerrajeria", name: "Cerrajería", icon: "KeyRound" },
+  { slug: "seguridad-industrial", name: "Seguridad Industrial", icon: "HardHat" },
+  { slug: "pinturas-acabados", name: "Pinturas y Acabados", icon: "PaintRoller" },
 ]
 
 export const BRANDS = [
@@ -426,6 +426,11 @@ export const PRODUCTS: Product[] = [
     compatibilities: ["Puertas de mueble 16-19mm", "Closets y cocinas"],
   },
 ]
+
+export const CATEGORIES: Category[] = CATEGORY_DEFINITIONS.map((category) => ({
+  ...category,
+  count: PRODUCTS.filter((product) => product.category === category.slug).length,
+}))
 
 export function getProduct(id: string) {
   return PRODUCTS.find((p) => p.id === id)

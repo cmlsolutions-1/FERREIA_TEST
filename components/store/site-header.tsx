@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   Camera,
   Mic,
@@ -16,6 +16,8 @@ import {
   LayoutDashboard,
   PackageSearch,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -57,12 +59,70 @@ function Logo({ className }: { className?: string }) {
 
 export function SiteHeader() {
   const router = useRouter()
+  const pathname = usePathname()
   const { count } = useCart()
   const { user, logout } = useCustomerSession()
   const [query, setQuery] = useState("")
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const categoryScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollCategoriesLeft, setCanScrollCategoriesLeft] = useState(false)
+  const [canScrollCategoriesRight, setCanScrollCategoriesRight] = useState(false)
+  const allCatalogActive = pathname === "/catalogo" && !activeCategory
+
+  const updateCategoryScrollControls = useCallback(() => {
+    const container = categoryScrollRef.current
+    if (!container) return
+    setCanScrollCategoriesLeft(container.scrollLeft > 2)
+    setCanScrollCategoriesRight(container.scrollLeft + container.clientWidth < container.scrollWidth - 2)
+  }, [])
+
+  useEffect(() => {
+    function syncCategoryFromUrl() {
+      setActiveCategory(
+        window.location.pathname === "/catalogo"
+          ? new URLSearchParams(window.location.search).get("categoria")
+          : null,
+      )
+    }
+    syncCategoryFromUrl()
+    window.addEventListener("popstate", syncCategoryFromUrl)
+    return () => window.removeEventListener("popstate", syncCategoryFromUrl)
+  }, [pathname])
+
+  useEffect(() => {
+    const container = categoryScrollRef.current
+    if (!container) return
+    updateCategoryScrollControls()
+    container.addEventListener("scroll", updateCategoryScrollControls, { passive: true })
+    const resizeObserver = new ResizeObserver(updateCategoryScrollControls)
+    resizeObserver.observe(container)
+    return () => {
+      container.removeEventListener("scroll", updateCategoryScrollControls)
+      resizeObserver.disconnect()
+    }
+  }, [updateCategoryScrollControls])
+
+  useEffect(() => {
+    const container = categoryScrollRef.current
+    if (!container) return
+    const selector = activeCategory ? `[data-category="${activeCategory}"]` : '[data-category="all"]'
+    const activeLink = container.querySelector<HTMLElement>(selector)
+    if (!activeLink) return
+    container.scrollTo({
+      left: activeLink.offsetLeft - (container.clientWidth - activeLink.clientWidth) / 2,
+      behavior: "smooth",
+    })
+  }, [activeCategory])
+
+  function scrollCategories(direction: -1 | 1) {
+    const container = categoryScrollRef.current
+    if (!container) return
+    container.scrollBy({ left: direction * Math.max(260, container.clientWidth * 0.7), behavior: "smooth" })
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault()
+    setActiveCategory(null)
     router.push(`/catalogo${query ? `?q=${encodeURIComponent(query)}` : ""}`)
   }
 
@@ -96,7 +156,7 @@ export function SiteHeader() {
       {/* Main bar */}
       <div className="border-b border-border bg-background">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-          <MobileNav />
+          <MobileNav activeCategory={activeCategory} allCatalogActive={allCatalogActive} onCategoryChange={setActiveCategory} />
           <Logo />
 
           {/* Smart search */}
@@ -197,10 +257,27 @@ export function SiteHeader() {
 
         {/* Category nav */}
         <nav className="border-t border-border bg-background">
-          <div className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 py-2 text-sm">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 text-sm">
+            <button
+              type="button"
+              onClick={() => scrollCategories(-1)}
+              disabled={!canScrollCategoriesLeft}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition-all hover:-translate-x-0.5 hover:border-accent hover:bg-accent/10 hover:text-accent disabled:pointer-events-none disabled:opacity-25"
+              aria-label="Ver categorías anteriores"
+              title="Categorías anteriores"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div ref={categoryScrollRef} className="category-nav-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scroll-smooth px-1">
             <Link
               href="/catalogo"
-              className="flex shrink-0 items-center gap-1.5 rounded-md bg-accent/10 px-3 py-1.5 font-medium text-accent"
+              onClick={() => setActiveCategory(null)}
+              data-category="all"
+              aria-current={allCatalogActive ? "page" : undefined}
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors",
+                allCatalogActive ? "bg-accent text-accent-foreground" : "bg-accent/10 text-accent hover:bg-accent/20",
+              )}
             >
               <Sparkles className="h-4 w-4" /> Todo el catálogo
             </Link>
@@ -209,11 +286,30 @@ export function SiteHeader() {
               <Link
                 key={c.slug}
                 href={`/catalogo?categoria=${c.slug}`}
-                className="shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-muted-foreground hover:bg-secondary hover:text-primary"
+                onClick={() => setActiveCategory(c.slug)}
+                data-category={c.slug}
+                aria-current={activeCategory === c.slug ? "page" : undefined}
+                className={cn(
+                  "shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 transition-colors",
+                  activeCategory === c.slug
+                    ? "bg-primary font-semibold text-primary-foreground"
+                    : "text-muted-foreground hover:bg-secondary hover:text-primary",
+                )}
               >
                 {c.name}
               </Link>
             ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollCategories(1)}
+              disabled={!canScrollCategoriesRight}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition-all hover:translate-x-0.5 hover:border-accent hover:bg-accent/10 hover:text-accent disabled:pointer-events-none disabled:opacity-25"
+              aria-label="Ver más categorías"
+              title="Más categorías"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         </nav>
       </div>
@@ -225,7 +321,7 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase()
 }
 
-function MobileNav() {
+function MobileNav({ activeCategory, allCatalogActive, onCategoryChange }: { activeCategory: string | null; allCatalogActive: boolean; onCategoryChange: (category: string | null) => void }) {
   return (
     <Sheet>
       <SheetTrigger
@@ -240,7 +336,7 @@ function MobileNav() {
           <SheetTitle className="text-primary">Categorías</SheetTitle>
         </SheetHeader>
         <div className="mt-4 flex flex-col gap-1 px-4 pb-6">
-          <Link href="/catalogo" className="rounded-md px-3 py-2 font-medium text-accent">
+          <Link href="/catalogo" onClick={() => onCategoryChange(null)} aria-current={allCatalogActive ? "page" : undefined} className={cn("rounded-md px-3 py-2 font-medium", allCatalogActive ? "bg-accent text-accent-foreground" : "text-accent")}>
             Todo el catálogo
           </Link>
           <Link href="/promociones" className="rounded-md px-3 py-2 font-semibold text-rose-700 hover:bg-rose-50">Promociones y Outlet</Link>
@@ -248,7 +344,9 @@ function MobileNav() {
             <Link
               key={c.slug}
               href={`/catalogo?categoria=${c.slug}`}
-              className="rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary"
+              onClick={() => onCategoryChange(c.slug)}
+              aria-current={activeCategory === c.slug ? "page" : undefined}
+              className={cn("rounded-md px-3 py-2 text-sm", activeCategory === c.slug ? "bg-primary font-semibold text-primary-foreground" : "text-foreground hover:bg-secondary")}
             >
               {c.name}
             </Link>

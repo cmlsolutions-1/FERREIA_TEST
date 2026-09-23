@@ -16,6 +16,15 @@
   box-shadow: 0 1px 0 var(--border);
 }
 
+.category-nav-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.category-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-geist-sans), 'Geist Fallback';

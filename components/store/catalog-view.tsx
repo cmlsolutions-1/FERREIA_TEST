@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { LayoutGrid, List, SlidersHorizontal, X, Scale } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,13 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   const masterBySku = useLiveProductMaster()
   const promotionsBySku = usePromotionsBySku()
   const query = (initialQuery ?? "").toLowerCase()
+
+  useEffect(() => {
+    const validCategory = initialCategory
+      ? CATEGORIES.some((category) => category.slug === initialCategory)
+      : false
+    setCategories(validCategory && initialCategory ? [initialCategory] : [])
+  }, [initialCategory])
 
   const products = useMemo(
     () => PRODUCTS.map((product) => applyMasterToStoreProduct(product, masterBySku[product.sku], promotionsBySku[product.sku] ?? null)),
