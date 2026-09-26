@@ -1,0 +1,11 @@
+node_modules
+.npm-cache
+.next
+.git
+.env
+.env.local
+.env.production
+.env.*.local
+!.env.example
+*.log
+tsconfig.tsbuildinfo

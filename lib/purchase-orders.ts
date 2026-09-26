@@ -1,8 +1,3 @@
-import { initialProductMaster } from "@/lib/product-master"
-
-export const PURCHASE_ORDERS_KEY = "ferreia-admin-purchase-orders-v2"
-export const LEGACY_PURCHASE_ORDERS_KEY = "ferreia-admin-purchase-orders"
-
 export type PurchaseOrderLine = {
   productId: string
   sku: string
@@ -23,9 +18,11 @@ export type InvoiceLine = {
 
 export type PurchaseOrder = {
   id: string
+  supplierId?: string | null
   supplier: string
   date: string
   status: "Borrador" | "Enviada" | "Recibida"
+  quotedTotal?: number
   lines: PurchaseOrderLine[]
   invoice?: {
     number: string
@@ -35,17 +32,6 @@ export type PurchaseOrder = {
     lines: InvoiceLine[]
   }
 }
-
-export const initialPurchaseOrders: PurchaseOrder[] = [{
-  id: "OC-2042",
-  supplier: "Distribuidora Bosch Colombia",
-  date: "2026-09-15",
-  status: "Enviada",
-  lines: [
-    { productId: initialProductMaster[1].id, sku: initialProductMaster[1].sku, name: initialProductMaster[1].name, orderedQty: 8, quotedUnitCost: initialProductMaster[1].cost },
-    { productId: initialProductMaster[2].id, sku: initialProductMaster[2].sku, name: initialProductMaster[2].name, orderedQty: 24, quotedUnitCost: initialProductMaster[2].cost },
-  ],
-}]
 
 export function allocateFreight(lines: Array<{ receivedQty: number; invoiceUnitCost: number }>, freight: number) {
   const bases = lines.map((line) => line.receivedQty * line.invoiceUnitCost)

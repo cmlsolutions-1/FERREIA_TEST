@@ -41,7 +41,8 @@ import {
 } from "@/components/ui/sheet"
 import { useCart } from "@/components/cart-provider"
 import { useCustomerSession } from "@/components/customer-session-provider"
-import { CATEGORIES, COMPANY } from "@/lib/data"
+import { COMPANY } from "@/lib/data"
+import { getCategories, type CategoryRecord } from "@/services/categories.service"
 import { cn } from "@/lib/utils"
 
 function Logo({ className }: { className?: string }) {
@@ -58,6 +59,8 @@ function Logo({ className }: { className?: string }) {
 }
 
 export function SiteHeader() {
+  const [CATEGORIES, setCategories] = useState<CategoryRecord[]>([])
+  useEffect(() => { getCategories().then((result) => setCategories(result.data)).catch(() => {}) }, [])
   const router = useRouter()
   const pathname = usePathname()
   const { count } = useCart()
@@ -156,7 +159,7 @@ export function SiteHeader() {
       {/* Main bar */}
       <div className="border-b border-border bg-background">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
-          <MobileNav activeCategory={activeCategory} allCatalogActive={allCatalogActive} onCategoryChange={setActiveCategory} />
+          <MobileNav activeCategory={activeCategory} allCatalogActive={allCatalogActive} onCategoryChange={setActiveCategory} categories={CATEGORIES} />
           <Logo />
 
           {/* Smart search */}
@@ -321,7 +324,7 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase()
 }
 
-function MobileNav({ activeCategory, allCatalogActive, onCategoryChange }: { activeCategory: string | null; allCatalogActive: boolean; onCategoryChange: (category: string | null) => void }) {
+function MobileNav({ activeCategory, allCatalogActive, onCategoryChange, categories }: { activeCategory: string | null; allCatalogActive: boolean; onCategoryChange: (category: string | null) => void; categories: CategoryRecord[] }) {
   return (
     <Sheet>
       <SheetTrigger
@@ -340,7 +343,7 @@ function MobileNav({ activeCategory, allCatalogActive, onCategoryChange }: { act
             Todo el catálogo
           </Link>
           <Link href="/promociones" className="rounded-md px-3 py-2 font-semibold text-rose-700 hover:bg-rose-50">Promociones y Outlet</Link>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <Link
               key={c.slug}
               href={`/catalogo?categoria=${c.slug}`}

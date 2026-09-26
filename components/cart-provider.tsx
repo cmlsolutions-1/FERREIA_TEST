@@ -1,12 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
-import { PRODUCTS, type Product } from "@/lib/data"
+import { type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
-import { applyMasterToStoreProduct, readProductMasterBySku } from "@/lib/store-product-sync"
-import { promotionBySku, PROMOTIONS_STORAGE_KEY, PROMOTIONS_UPDATED_EVENT, readPromotions } from "@/lib/promotions"
-import { PRODUCT_STORAGE_KEY } from "@/lib/product-master"
+import { getProductById } from "@/services/products.service"
 
 export type CartLine = {
   product: Product
@@ -34,9 +32,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY)
       if (stored) {
-        const masters = readProductMasterBySku()
-        const promotions = promotionBySku(readPromotions())
-        setLines((JSON.parse(stored) as CartLine[]).map((line) => ({ ...line, product: applyMasterToStoreProduct(PRODUCTS.find((product) => product.sku === line.product.sku) ?? line.product, masters[line.product.sku], promotions[line.product.sku] ?? null) })))
+        const saved = JSON.parse(stored) as CartLine[]
+        setLines(saved)
+        void Promise.all(saved.map(async (line) => { try { return { ...line, product: (await getProductById(line.product.id)).data as Product } } catch { return null } })).then((fresh) => setLines(fresh.filter((line): line is CartLine => Boolean(line))))
       }
     } finally { setHydrated(true) }
   }, [])
@@ -46,22 +44,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [hydrated, lines])
 
   useEffect(() => {
-    const updatePrices = () => {
-      const masters = readProductMasterBySku()
-      const promotions = promotionBySku(readPromotions())
-      setLines((previous) => previous.map((line) => ({ ...line, product: applyMasterToStoreProduct(PRODUCTS.find((product) => product.sku === line.product.sku) ?? line.product, masters[line.product.sku], promotions[line.product.sku] ?? null) })))
-    }
-    const onStorage = (event: StorageEvent) => { if (event.key === PRODUCT_STORAGE_KEY || event.key === PROMOTIONS_STORAGE_KEY) updatePrices() }
+    const updatePrices = () => { setLines((previous) => { void Promise.all(previous.map(async (line) => { try { return { ...line, product: (await getProductById(line.product.id)).data as Product } } catch { return null } })).then((fresh) => setLines(fresh.filter((line): line is CartLine => Boolean(line)))); return previous }) }
     window.addEventListener(PRODUCT_UPDATED_EVENT, updatePrices)
-    window.addEventListener(PROMOTIONS_UPDATED_EVENT, updatePrices)
-    window.addEventListener("storage", onStorage)
-    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, updatePrices); window.removeEventListener(PROMOTIONS_UPDATED_EVENT, updatePrices); window.removeEventListener("storage", onStorage) }
+    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, updatePrices) }
   }, [])
 
   function addItem(product: Product, qty = 1) {
-    const masters = readProductMasterBySku()
-    const promotions = promotionBySku(readPromotions())
-    const currentProduct = applyMasterToStoreProduct(PRODUCTS.find((item) => item.sku === product.sku) ?? product, masters[product.sku], promotions[product.sku] ?? null)
+    const currentProduct = product
     setLines((prev) => {
       const existing = prev.find((l) => l.product.id === currentProduct.id)
       if (existing) {

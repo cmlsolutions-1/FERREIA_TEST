@@ -47,22 +47,22 @@ export default function CheckoutPage() {
   const selectedQuote = shipping === "express" ? expressQuote : standardQuote
   const shippingProgress = freeShippingProgress(shippingSettings, subtotal, count)
   const shippingCost = selectedQuote.cost
-  const tax = Math.round(subtotal * 0.19)
+  const tax = Math.round(lines.reduce((sum, line) => sum + calculateTieredPrice(line.product, line.qty).total * (("taxRate" in line.product && typeof line.product.taxRate === "number") ? line.product.taxRate : 19) / 100, 0))
   const total = subtotal + tax + shippingCost
 
   function update<K extends keyof CustomerForm>(key: K, value: CustomerForm[K]) {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  function confirmOrder(event: React.FormEvent) {
+  async function confirmOrder(event: React.FormEvent) {
     event.preventDefault()
     if (!form.department) { setError("Selecciona el departamento de entrega."); return }
     if (!selectedQuote.available) { setError("No hay un método de envío disponible para completar el pedido."); return }
     if (submissionLocked.current) return
     submissionLocked.current = true
     setProcessing(true)
-    const paymentStatus: PaymentStatus = payment === "contraentrega" ? "Contra entrega" : "Pagado"
-    const result = createOrder({
+    const paymentStatus: PaymentStatus = payment === "contraentrega" ? "Contra entrega" : "Pendiente"
+    const result = await createOrder({
       customerId: user?.id ?? null,
       guest: !user,
       customerName: form.name.trim(),

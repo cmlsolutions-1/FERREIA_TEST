@@ -1,0 +1,2 @@
+import { z } from "zod"
+export const promotionSchema = z.object({ sku: z.string().trim().min(1), kind: z.enum(["promocion", "outlet"]), regularPrice: z.number().positive(), salePrice: z.number().positive(), startsAt: z.iso.date().or(z.literal("")), endsAt: z.iso.date().or(z.literal("")), active: z.boolean() }).strict().refine((value) => value.salePrice < value.regularPrice, "El precio de oferta debe ser menor que el anterior").refine((value) => !value.startsAt || !value.endsAt || value.startsAt <= value.endsAt, "La fecha final debe ser posterior a la inicial")

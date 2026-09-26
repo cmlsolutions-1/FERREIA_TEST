@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
 
-import { NextResponse } from "next/server"
-
 import { LOCAL_IMAGE_DIRS } from "@/lib/upload-paths"
+import { requireAdmin } from "@/server/modules/auth/auth.service"
+import { ApiError } from "@/server/shared/api-error"
+import { handleApi, success } from "@/server/shared/api-response"
 
 export const runtime = "nodejs"
 
@@ -26,29 +27,25 @@ function slugify(value: string) {
 }
 
 export async function POST(request: Request) {
+  return handleApi(async () => {
+  await requireAdmin(request)
   const formData = await request.formData()
   const file = formData.get("file")
   const productId = String(formData.get("productId") || "producto")
   const productName = String(formData.get("productName") || "imagen")
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Debes enviar una imagen." }, { status: 400 })
+    throw new ApiError(400, "VALIDATION_ERROR", "Debes enviar una imagen.")
   }
 
   const extension = ALLOWED_TYPES.get(file.type)
 
   if (!extension) {
-    return NextResponse.json(
-      { error: "Formato no permitido. Usa JPG, PNG, WEBP o SVG." },
-      { status: 400 },
-    )
+    throw new ApiError(400, "VALIDATION_ERROR", "Formato no permitido. Usa JPG, PNG, WEBP o SVG.")
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: "La imagen no puede superar 5 MB." },
-      { status: 400 },
-    )
+    throw new ApiError(400, "VALIDATION_ERROR", "La imagen no puede superar 5 MB.")
   }
 
   const safeProductId = slugify(productId) || "producto"
@@ -65,9 +62,10 @@ export async function POST(request: Request) {
   await mkdir(uploadDir, { recursive: true })
   await writeFile(filePath, Buffer.from(await file.arrayBuffer()))
 
-  return NextResponse.json({
+  return success("Imagen cargada correctamente", {
     url: relativeUrl,
     filename,
     storage: "local",
+  }, 201)
   })
 }

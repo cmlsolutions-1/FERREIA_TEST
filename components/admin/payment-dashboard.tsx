@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatCOP } from "@/lib/data"
-import { detailLabels, initialMercadoPagoPayments, initialMercadoPagoSettings, MERCADO_PAGO_SETTINGS_KEY, MERCADO_PAGO_STORAGE_KEY, statusLabels, type MercadoPagoPayment, type MercadoPagoSettings, type MercadoPagoStatus } from "@/lib/mercado-pago"
+import { detailLabels, initialMercadoPagoSettings, MERCADO_PAGO_SETTINGS_KEY, statusLabels, type MercadoPagoPayment, type MercadoPagoSettings, type MercadoPagoStatus } from "@/lib/mercado-pago"
+import { getPayments } from "@/services/payments.service"
 
 const statusStyles: Record<MercadoPagoStatus, string> = {
   approved: "bg-emerald-50 text-emerald-700",
@@ -22,12 +23,11 @@ const statusStyles: Record<MercadoPagoStatus, string> = {
   cancelled: "bg-slate-100 text-slate-600",
 }
 
-function readPayments() { try { const stored = localStorage.getItem(MERCADO_PAGO_STORAGE_KEY); return stored ? JSON.parse(stored) as MercadoPagoPayment[] : initialMercadoPagoPayments } catch { return initialMercadoPagoPayments } }
 function readSettings() { try { const stored = localStorage.getItem(MERCADO_PAGO_SETTINGS_KEY); return stored ? JSON.parse(stored) as MercadoPagoSettings : initialMercadoPagoSettings } catch { return initialMercadoPagoSettings } }
 function money(value: number) { return formatCOP(Math.round(value)) }
 
 export function PaymentDashboard() {
-  const [payments, setPayments] = useState(initialMercadoPagoPayments)
+  const [payments, setPayments] = useState<MercadoPagoPayment[]>([])
   const [settings, setSettings] = useState(initialMercadoPagoSettings)
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState("all")
@@ -36,7 +36,7 @@ export function PaymentDashboard() {
   const [saved, setSaved] = useState(false)
   const [synced, setSynced] = useState(false)
 
-  useEffect(() => { setPayments(readPayments()); setSettings(readSettings()) }, [])
+  useEffect(() => { getPayments().then((result) => setPayments(result.data)).catch(() => {}); setSettings(readSettings()) }, [])
 
   const visible = useMemo(() => {
     const clean = query.trim().toLowerCase()

@@ -41,11 +41,10 @@ export function OrderManagementView() {
   const active = orders.filter((order) => !["Entregado", "Cancelado"].includes(order.status))
   const delayed = active.filter((order) => order.estimatedTo && order.estimatedTo < new Date().toISOString().slice(0, 10)).length
 
-  function save() {
+  async function save() {
     if (!selected || !draft) return
-    updateOrder(selected.id, draft, eventDetail)
-    setSaved(true)
-    setEventDetail("")
+    try { await updateOrder(selected.id, draft, eventDetail); setSaved(true); setEventDetail("") }
+    catch (error) { setEventDetail(error instanceof Error ? error.message : "No fue posible actualizar el pedido") }
   }
 
   return <div className="space-y-5">

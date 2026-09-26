@@ -1,6 +1,10 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Phone, Mail, MapPin, Truck, ShieldCheck, CreditCard, Headphones } from "lucide-react"
-import { CATEGORIES, COMPANY } from "@/lib/data"
+import { COMPANY } from "@/lib/data"
+import { getCategories, type CategoryRecord } from "@/services/categories.service"
 
 const FEATURES = [
   { icon: Truck, title: "Envíos a toda Colombia", desc: "Despacho en 24-72h" },
@@ -10,6 +14,8 @@ const FEATURES = [
 ]
 
 export function SiteFooter() {
+  const [CATEGORIES, setCategories] = useState<CategoryRecord[]>([])
+  useEffect(() => { getCategories().then((result) => setCategories(result.data)).catch(() => {}) }, [])
   return (
     <footer className="mt-16 bg-primary text-primary-foreground">
       <div className="border-b border-white/10">

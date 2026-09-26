@@ -17,7 +17,10 @@ import { HomeHero } from "@/components/store/home-hero"
 import { PromotionsCatalog } from "@/components/store/promotions-catalog"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { Button } from "@/components/ui/button"
-import { CATEGORIES, PRODUCTS, BRANDS, TESTIMONIALS } from "@/lib/data"
+import { TESTIMONIALS, type Category, type Product } from "@/lib/data"
+import { serverApiRequest } from "@/services/server-api"
+
+export const dynamic = "force-dynamic"
 
 const ICONS: Record<string, React.ElementType> = {
   Wrench, Drill, Lightbulb, Hammer, Bolt, KeyRound, HardHat, PaintRoller,
@@ -39,7 +42,15 @@ function SectionHeader({ title, href }: { title: string; href?: string }) {
   )
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  const [productResponse, categoryResponse, brandResponse] = await Promise.all([
+    serverApiRequest<Product[]>("/api/products?limit=100&active=true"),
+    serverApiRequest<Category[]>("/api/categories?limit=100&active=true"),
+    serverApiRequest<Array<{ name: string }>>("/api/brands?limit=100&active=true"),
+  ])
+  const PRODUCTS = productResponse.data
+  const CATEGORIES = categoryResponse.data
+  const BRANDS = brandResponse.data.map((brand) => brand.name)
   const destacados = PRODUCTS.slice(0, 5)
   const masVendidos = PRODUCTS.filter((p) => p.badge === "Más vendido")
 

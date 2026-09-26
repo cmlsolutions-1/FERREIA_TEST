@@ -8,19 +8,23 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ADMIN_ACCOUNT } from "@/lib/admin-account"
 
 export default function AdminLoginPage() {
   const { login } = useAdminAuth()
-  const [email, setEmail] = useState<string>(ADMIN_ACCOUNT.email)
-  const [password, setPassword] = useState<string>(ADMIN_ACCOUNT.password)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!login(email, password)) setError("El correo o la contraseña no coinciden.")
-    else setError("")
+    setSubmitting(true)
+    try {
+      if (!await login(email, password)) setError("El correo o la contraseña no coinciden.")
+      else setError("")
+    } catch { setError("No fue posible contactar al servidor.") }
+    finally { setSubmitting(false) }
   }
 
   return (
@@ -51,12 +55,11 @@ export default function AdminLoginPage() {
                 </div>
               </div>
               {error && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-              <Button type="submit" className="w-full"><LogIn className="h-4 w-4" />Ingresar al panel</Button>
+              <Button type="submit" disabled={submitting} className="w-full"><LogIn className="h-4 w-4" />{submitting ? "Ingresando..." : "Ingresar al panel"}</Button>
             </form>
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">Acceso de demostración: {ADMIN_ACCOUNT.email} / {ADMIN_ACCOUNT.password}</p>
         <Button asChild variant="ghost" className="mx-auto mt-3 flex text-primary"><Link href="/"><Store className="h-4 w-4" />Volver a la tienda</Link></Button>
       </div>
     </main>

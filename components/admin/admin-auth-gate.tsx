@@ -2,12 +2,12 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { ADMIN_ACCOUNT, ADMIN_SESSION_KEY } from "@/lib/admin-account"
 import { AdminSidebar } from "@/components/admin/admin-sidebar"
+import { getAdminSession, signInAdmin, signOutAdmin } from "@/services/auth.service"
 
 type AdminAuthContextValue = {
-  login: (email: string, password: string) => boolean
-  logout: () => void
+  login: (email: string, password: string) => Promise<boolean>
+  logout: () => Promise<void>
 }
 
 const AdminAuthContext = createContext<AdminAuthContextValue | null>(null)
@@ -25,11 +25,9 @@ export function AdminAuthGate({ children }: { children: ReactNode }) {
   const isLoginPage = pathname === "/admin/login"
 
   useEffect(() => {
-    try {
-      setAuthenticated(localStorage.getItem(ADMIN_SESSION_KEY) === ADMIN_ACCOUNT.id)
-    } catch {
-      setAuthenticated(false)
-    }
+    let mounted = true
+    getAdminSession().then((user) => { if (mounted) setAuthenticated(Boolean(user)) }).catch(() => { if (mounted) setAuthenticated(false) })
+    return () => { mounted = false }
   }, [])
 
   useEffect(() => {
@@ -37,20 +35,16 @@ export function AdminAuthGate({ children }: { children: ReactNode }) {
     if (authenticated === true && isLoginPage) router.replace("/admin")
   }, [authenticated, isLoginPage, router])
 
-  function login(email: string, password: string) {
-    if (email.trim().toLowerCase() !== ADMIN_ACCOUNT.email || password !== ADMIN_ACCOUNT.password) return false
-    try {
-      localStorage.setItem(ADMIN_SESSION_KEY, ADMIN_ACCOUNT.id)
-    } catch {
-      return false
-    }
+  async function login(email: string, password: string) {
+    const accepted = await signInAdmin(email, password)
+    if (!accepted) return false
     setAuthenticated(true)
     router.replace("/admin")
     return true
   }
 
-  function logout() {
-    localStorage.removeItem(ADMIN_SESSION_KEY)
+  async function logout() {
+    await signOutAdmin()
     setAuthenticated(false)
     router.replace("/admin/login")
   }

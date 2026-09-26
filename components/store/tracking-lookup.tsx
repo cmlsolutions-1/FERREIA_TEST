@@ -8,28 +8,27 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useCustomerSession } from "@/components/customer-session-provider"
-import { useOrders } from "@/components/order-provider"
 import { OrderTrackingPanel } from "@/components/store/order-tracking-panel"
 import type { FerreiaOrder } from "@/lib/orders"
+import { getOrderById } from "@/services/orders.service"
 
 export function TrackingLookup({ initialOrderId = "" }: { initialOrderId?: string }) {
   const { user } = useCustomerSession()
-  const { findOrder } = useOrders()
   const [orderId, setOrderId] = useState(initialOrderId)
   const [email, setEmail] = useState(user?.email ?? "")
   const [result, setResult] = useState<FerreiaOrder | null>(null)
   const [error, setError] = useState("")
 
-  function searchOrder(event: React.FormEvent) {
+  async function searchOrder(event: React.FormEvent) {
     event.preventDefault()
-    const order = findOrder(orderId, email, user?.id ?? null)
-    if (!order) {
+    try {
+      const order = (await getOrderById(orderId, email || user?.email)).data
+      setError("")
+      setResult(order)
+    } catch {
       setResult(null)
       setError("No encontramos un pedido que coincida con esos datos.")
-      return
     }
-    setError("")
-    setResult(order)
   }
 
   return (

@@ -523,26 +523,6 @@ export const INVENTORY: InventoryItem[] = PRODUCTS.map((p, i) => ({
   bodega: i % 2 === 0 ? "Bodega Norte" : "Bodega Sur",
 }))
 
-export type Customer = {
-  id: string
-  nombre: string
-  tipo: "Persona" | "Empresa"
-  ciudad: string
-  compras: number
-  total: number
-  ultimaCompra: string
-  segmento: "VIP" | "Frecuente" | "Nuevo"
-}
-
-export const CUSTOMERS: Customer[] = [
-  { id: "C-001", nombre: "Constructora Andina S.A.S", tipo: "Empresa", ciudad: "Bogotá", compras: 64, total: 48200000, ultimaCompra: "2026-06-15", segmento: "VIP" },
-  { id: "C-002", nombre: "Ferretería El Tornillo", tipo: "Empresa", ciudad: "Cali", compras: 52, total: 31400000, ultimaCompra: "2026-06-14", segmento: "VIP" },
-  { id: "C-003", nombre: "Carlos Mendoza", tipo: "Persona", ciudad: "Medellín", compras: 18, total: 4200000, ultimaCompra: "2026-06-15", segmento: "Frecuente" },
-  { id: "C-004", nombre: "Andrea Gómez", tipo: "Persona", ciudad: "Bogotá", compras: 12, total: 2800000, ultimaCompra: "2026-06-14", segmento: "Frecuente" },
-  { id: "C-005", nombre: "Juan Pérez", tipo: "Persona", ciudad: "Barranquilla", compras: 3, total: 320000, ultimaCompra: "2026-06-13", segmento: "Nuevo" },
-  { id: "C-006", nombre: "Inmobiliaria Centro", tipo: "Empresa", ciudad: "Bucaramanga", compras: 7, total: 1900000, ultimaCompra: "2026-06-13", segmento: "Frecuente" },
-]
-
 export type Supplier = {
   id: string
   nombre: string
@@ -558,21 +538,6 @@ export const SUPPLIERS: Supplier[] = [
   { id: "PR-002", nombre: "Importadora Truper S.A.", nit: "900.234.567-2", contacto: "+57 604 333 2200", ciudad: "Medellín", productos: 142, cartera: 0 },
   { id: "PR-003", nombre: "Philips Iluminación", nit: "900.345.678-3", contacto: "+57 602 222 3300", ciudad: "Cali", productos: 64, cartera: 5600000 },
   { id: "PR-004", nombre: "Pretul Distribución", nit: "900.456.789-4", contacto: "+57 601 555 4400", ciudad: "Bogotá", productos: 210, cartera: 8900000 },
-]
-
-export type Purchase = {
-  id: string
-  proveedor: string
-  fecha: string
-  total: number
-  estado: "Borrador" | "Enviada" | "Recibida" | "Facturada"
-}
-
-export const PURCHASES: Purchase[] = [
-  { id: "OC-2041", proveedor: "Distribuidora Bosch Colombia", fecha: "2026-06-14", total: 18400000, estado: "Recibida" },
-  { id: "OC-2040", proveedor: "Pretul Distribución", fecha: "2026-06-13", total: 9200000, estado: "Facturada" },
-  { id: "OC-2039", proveedor: "Philips Iluminación", fecha: "2026-06-12", total: 5600000, estado: "Enviada" },
-  { id: "OC-2038", proveedor: "Importadora Truper S.A.", fecha: "2026-06-10", total: 12100000, estado: "Borrador" },
 ]
 
 export const DEPARTAMENTOS = [

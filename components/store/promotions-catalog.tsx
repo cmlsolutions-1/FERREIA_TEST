@@ -1,25 +1,16 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, BadgePercent, ShoppingBag, Tag } from "lucide-react"
 import { ProductCard } from "@/components/store/product-card"
-import { useLiveProductMaster } from "@/components/use-live-stock"
-import { usePromotionsBySku } from "@/components/use-promotions"
-import { PRODUCTS } from "@/lib/data"
-import { applyMasterToStoreProduct } from "@/lib/store-product-sync"
-import { promotionStatus } from "@/lib/promotions"
+import type { Product } from "@/lib/data"
+import { getAllProducts } from "@/services/products.service"
 
 export function PromotionsCatalog({ compact = false }: { compact?: boolean }) {
-  const masters = useLiveProductMaster()
-  const promotions = usePromotionsBySku()
   const [filter, setFilter] = useState<"todas" | "promocion" | "outlet">("todas")
-  const entries = useMemo(() => PRODUCTS.flatMap((product) => {
-    const promotion = promotions[product.sku]
-    const base = masters[product.sku]?.price ?? product.price
-    if (!promotion || promotionStatus(promotion, base) !== "vigente") return []
-    return [{ product: applyMasterToStoreProduct(product, masters[product.sku], promotion), promotion }]
-  }), [masters, promotions])
+  const [entries, setEntries] = useState<Array<{ product: Product; promotion: { kind: "promocion" | "outlet" } }>>([])
+  useEffect(() => { let active = true; getAllProducts({ active: true }).then((products) => { if (active) setEntries(products.filter((product) => product.oldPrice && product.oldPrice > product.price).map((product) => ({ product: product as Product, promotion: { kind: product.badge === "Outlet" ? "outlet" : "promocion" } }))) }).catch(() => {}); return () => { active = false } }, [])
   const shown = compact ? entries.slice(0, 5) : entries.filter((entry) => filter === "todas" || entry.promotion.kind === filter)
 
   if (compact) return <section className="bg-secondary py-12"><div className="mx-auto max-w-7xl px-4"><div className="mb-5 flex items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-rose-700">Precios especiales</p><h2 className="text-2xl font-bold text-primary">Promociones y Outlet</h2></div><Link href="/promociones" className="flex items-center gap-1 text-sm font-semibold text-accent">Ver todo <ArrowRight className="h-4 w-4" /></Link></div>{shown.length ? <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">{shown.map(({ product }) => <ProductCard key={product.sku} product={product} />)}</div> : <p className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">Pronto habrá nuevos precios especiales.</p>}</div></section>

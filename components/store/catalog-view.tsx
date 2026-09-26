@@ -16,10 +16,10 @@ import {
 } from "@/components/ui/select"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { useCart } from "@/components/cart-provider"
-import { useLiveProductMaster } from "@/components/use-live-stock"
-import { usePromotionsBySku } from "@/components/use-promotions"
-import { applyMasterToStoreProduct } from "@/lib/store-product-sync"
-import { CATEGORIES, PRODUCTS, BRANDS, formatCOP, type Product } from "@/lib/data"
+import { formatCOP, type Product } from "@/lib/data"
+import { getProducts } from "@/services/products.service"
+import { getCategories, type CategoryRecord } from "@/services/categories.service"
+import { getBrands, type BrandRecord } from "@/services/brands.service"
 import { cn } from "@/lib/utils"
 
 type Props = { initialCategory?: string; initialQuery?: string }
@@ -36,21 +36,25 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   const [sort, setSort] = useState("relevancia")
   const [view, setView] = useState<"grid" | "list">("grid")
   const [compare, setCompare] = useState<Product[]>([])
-  const masterBySku = useLiveProductMaster()
-  const promotionsBySku = usePromotionsBySku()
+  const [products, setProducts] = useState<Product[]>([])
+  const [catalogCategories, setCatalogCategories] = useState<CategoryRecord[]>([])
+  const [catalogBrands, setCatalogBrands] = useState<BrandRecord[]>([])
   const query = (initialQuery ?? "").toLowerCase()
 
   useEffect(() => {
-    const validCategory = initialCategory
-      ? CATEGORIES.some((category) => category.slug === initialCategory)
-      : false
-    setCategories(validCategory && initialCategory ? [initialCategory] : [])
+    setCategories(initialCategory ? [initialCategory] : [])
   }, [initialCategory])
 
-  const products = useMemo(
-    () => PRODUCTS.map((product) => applyMasterToStoreProduct(product, masterBySku[product.sku], promotionsBySku[product.sku] ?? null)),
-    [masterBySku, promotionsBySku],
-  )
+  useEffect(() => {
+    let active = true
+    Promise.all([getProducts({ limit: 100, active: true }), getCategories(), getBrands()]).then(([productResult, categoryResult, brandResult]) => {
+      if (!active) return
+      setProducts(productResult.data as Product[])
+      setCatalogCategories(categoryResult.data)
+      setCatalogBrands(brandResult.data)
+    }).catch((error) => console.error("No fue posible cargar el catálogo", error))
+    return () => { active = false }
+  }, [])
   const comparedProducts = useMemo(
     () => compare.map((selected) => products.find((product) => product.id === selected.id) ?? selected),
     [compare, products],
@@ -89,7 +93,7 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
   const filters = (
     <div className="space-y-6">
       <FilterGroup title="Categoría">
-        {CATEGORIES.map((c) => (
+        {catalogCategories.map((c) => (
           <label key={c.slug} className="flex items-center gap-2 text-sm">
             <Checkbox
               checked={categories.includes(c.slug)}
@@ -102,10 +106,10 @@ export function CatalogView({ initialCategory, initialQuery }: Props) {
       </FilterGroup>
 
       <FilterGroup title="Marca">
-        {BRANDS.map((b) => (
-          <label key={b} className="flex items-center gap-2 text-sm">
-            <Checkbox checked={brands.includes(b)} onCheckedChange={() => toggle(brands, setBrands, b)} />
-            {b}
+        {catalogBrands.map((b) => (
+          <label key={b.id} className="flex items-center gap-2 text-sm">
+            <Checkbox checked={brands.includes(b.name)} onCheckedChange={() => toggle(brands, setBrands, b.name)} />
+            {b.name}
           </label>
         ))}
       </FilterGroup>

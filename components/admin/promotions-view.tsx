@@ -8,27 +8,26 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PRODUCTS, formatCOP } from "@/lib/data"
-import { initialProductMaster, PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { formatCOP } from "@/lib/data"
+import { type ProductMaster } from "@/lib/product-master"
 import { PRODUCT_UPDATED_EVENT } from "@/lib/cost-pricing"
-import { discountPercent, initialPromotions, promotionStatus, PROMOTIONS_STORAGE_KEY, PROMOTIONS_UPDATED_EVENT, readPromotions, type Promotion, type PromotionKind } from "@/lib/promotions"
+import { discountPercent, promotionStatus, PROMOTIONS_UPDATED_EVENT, type Promotion, type PromotionKind } from "@/lib/promotions"
+import { getAllProducts, type ProductRecord } from "@/services/products.service"
+import { getPromotions, savePromotion, removePromotion } from "@/services/promotions.service"
 
-const visibleSkus = new Set(PRODUCTS.map((product) => product.sku))
+function toMaster(product: ProductRecord): ProductMaster { return { id: product.sku, reference: product.reference, supplierReference: product.supplierReference, name: product.name, sku: product.sku, barcodes: product.barcodes, line: product.line, brand: product.brand, group: product.group, subgroup: product.subgroup, packaging: product.packaging, unit: product.unit, weight: product.weight, cost: product.cost, price: product.basePrice, taxRate: product.taxRate, warehouse: product.warehouse, stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax, images: product.images, suppliers: product.suppliers, characteristics: product.characteristics, active: product.active, markupPercent: product.markupPercent, costReview: product.costReview } }
 
 export function PromotionsView() {
-  const [products, setProducts] = useState<ProductMaster[]>(initialProductMaster)
-  const [promotions, setPromotions] = useState<Promotion[]>(initialPromotions)
+  const [products, setProducts] = useState<ProductMaster[]>([])
+  const [promotions, setPromotions] = useState<Promotion[]>([])
   const [draft, setDraft] = useState<Promotion | null>(null)
   const [pickerReset, setPickerReset] = useState(0)
   const [query, setQuery] = useState("")
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const loadProducts = () => {
-      try { const raw = localStorage.getItem(PRODUCT_STORAGE_KEY); setProducts(raw ? JSON.parse(raw) as ProductMaster[] : initialProductMaster) }
-      catch { setProducts(initialProductMaster) }
-    }
-    const loadPromotions = () => setPromotions(readPromotions())
+    const loadProducts = () => { getAllProducts({ admin: true }).then((items) => setProducts(items.map(toMaster))).catch(() => {}) }
+    const loadPromotions = () => { getPromotions().then((result) => setPromotions(result.data)).catch(() => {}) }
     loadProducts(); loadPromotions()
     window.addEventListener(PRODUCT_UPDATED_EVENT, loadProducts)
     window.addEventListener(PROMOTIONS_UPDATED_EVENT, loadPromotions)
@@ -37,7 +36,7 @@ export function PromotionsView() {
     return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, loadProducts); window.removeEventListener(PROMOTIONS_UPDATED_EVENT, loadPromotions); window.removeEventListener("storage", loadProducts); window.removeEventListener("storage", loadPromotions) }
   }, [])
 
-  const storefrontProducts = useMemo(() => products.filter((product) => visibleSkus.has(product.sku)), [products])
+  const storefrontProducts = products
   const productBySku = useMemo(() => Object.fromEntries(storefrontProducts.map((product) => [product.sku, product])) as Record<string, ProductMaster>, [storefrontProducts])
   const filtered = promotions.filter((promotion) => {
     const product = productBySku[promotion.sku]
@@ -46,11 +45,6 @@ export function PromotionsView() {
   const activeCount = promotions.filter((promotion) => productBySku[promotion.sku] && promotionStatus(promotion, productBySku[promotion.sku].price) === "vigente").length
   const reviewCount = promotions.filter((promotion) => productBySku[promotion.sku] && promotionStatus(promotion, productBySku[promotion.sku].price) === "revisar").length
 
-  function persist(next: Promotion[]) {
-    setPromotions(next)
-    localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(next))
-    window.dispatchEvent(new Event(PROMOTIONS_UPDATED_EVENT))
-  }
 
   function chooseProduct(sku: string) {
     const product = productBySku[sku]
@@ -60,25 +54,24 @@ export function PromotionsView() {
     setError("")
   }
 
-  function save(event: React.FormEvent) {
+  async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!draft) return
     const product = productBySku[draft.sku]
     if (!product || !product.active) { setError("Selecciona un artículo activo de la tienda."); return }
     if (!Number.isFinite(draft.regularPrice) || !Number.isFinite(draft.salePrice) || draft.regularPrice <= 0 || draft.salePrice <= 0 || draft.salePrice >= draft.regularPrice) { setError("El precio promocional debe ser mayor que cero y menor que el precio anterior."); return }
     if (draft.startsAt && draft.endsAt && draft.endsAt < draft.startsAt) { setError("La fecha final debe ser posterior a la inicial."); return }
-    const next = { ...draft, basePrice: product.price, updatedAt: new Date().toISOString() }
-    persist([...promotions.filter((item) => item.sku !== draft.sku), next])
-    setDraft(null); setError(""); setPickerReset((value) => value + 1)
+    try { const result = await savePromotion(draft); setPromotions([...promotions.filter((item) => item.sku !== draft.sku), result.data]); setDraft(null); setError(""); setPickerReset((value) => value + 1); window.dispatchEvent(new Event(PROMOTIONS_UPDATED_EVENT)) }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "No fue posible guardar el descuento") }
   }
 
-  function remove(sku: string) {
-    persist(promotions.filter((item) => item.sku !== sku))
-    if (draft?.sku === sku) { setDraft(null); setPickerReset((value) => value + 1) }
+  async function remove(sku: string) {
+    try { await removePromotion(sku); setPromotions(promotions.filter((item) => item.sku !== sku)); if (draft?.sku === sku) { setDraft(null); setPickerReset((value) => value + 1) }; window.dispatchEvent(new Event(PROMOTIONS_UPDATED_EVENT)) }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "No fue posible eliminar el descuento") }
   }
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold">Promociones y outlet</h1><Badge variant="outline">Datos mockeados</Badge></div><p className="mt-1 text-sm text-muted-foreground">Controla los descuentos que se publican en la tienda. Los cambios también actualizan el carrito.</p></div><Button asChild variant="outline"><a href="/promociones">Ver en la tienda</a></Button></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h1 className="text-2xl font-bold">Promociones y outlet</h1><Badge variant="outline">PostgreSQL</Badge></div><p className="mt-1 text-sm text-muted-foreground">Controla los descuentos que se publican en la tienda. Los cambios también actualizan el carrito.</p></div><Button asChild variant="outline"><a href="/promociones">Ver en la tienda</a></Button></div>
     <div className="grid gap-3 sm:grid-cols-3"><Metric icon={Tag} title="Promociones vigentes" value={activeCount} /><Metric icon={CalendarDays} title="Por revisar" value={reviewCount} /><Metric icon={BadgePercent} title="Artículos de la tienda" value={storefrontProducts.length} /></div>
     <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
       <Card className="h-fit"><CardContent className="space-y-4 p-5"><div><h2 className="font-bold">{draft && promotions.some((item) => item.sku === draft.sku) ? "Editar descuento" : "Crear descuento"}</h2><p className="text-xs text-muted-foreground">El precio anterior y el descuento se reflejan en las fichas de la tienda.</p></div><form onSubmit={save} className="space-y-4"><ProductSearchPicker products={storefrontProducts.filter((item) => item.active)} promotions={promotions} selected={draft ? productBySku[draft.sku] : undefined} resetKey={pickerReset} onSelect={chooseProduct} onClear={() => { setDraft(null); setError("") }} />{draft && <><Field label="Tipo"><Select value={draft.kind} onValueChange={(value) => value && setDraft({ ...draft, kind: value as PromotionKind })}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="promocion">Promoción</SelectItem><SelectItem value="outlet">Outlet</SelectItem></SelectContent></Select></Field><div className="grid grid-cols-2 gap-3"><Field label="Precio anterior"><Input type="number" min="1" step="1" value={draft.regularPrice} onChange={(event) => setDraft({ ...draft, regularPrice: Number(event.target.value) })} /></Field><Field label="Precio con descuento"><Input type="number" min="1" step="1" value={draft.salePrice} onChange={(event) => setDraft({ ...draft, salePrice: Number(event.target.value) })} /></Field></div><Field label="Porcentaje de descuento"><Input type="number" min="1" max="99" step="1" value={draft.regularPrice > 0 ? discountPercent(draft) : 0} onChange={(event) => setDraft({ ...draft, salePrice: Math.round(draft.regularPrice * (1 - Number(event.target.value) / 100)) })} /></Field><div className="grid grid-cols-2 gap-3"><Field label="Inicia (opcional)"><Input type="date" value={draft.startsAt} onChange={(event) => setDraft({ ...draft, startsAt: event.target.value })} /></Field><Field label="Termina (opcional)"><Input type="date" value={draft.endsAt} onChange={(event) => setDraft({ ...draft, endsAt: event.target.value })} /></Field></div><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.active} onChange={(event) => setDraft({ ...draft, active: event.target.checked })} />Publicar descuento</label><div className="rounded-lg bg-muted p-3 text-sm"><p>Descuento: <b>{draft.regularPrice > draft.salePrice && draft.salePrice > 0 ? `${discountPercent(draft)}%` : "—"}</b></p><p>Precio base del artículo: <b>{formatCOP(productBySku[draft.sku]?.price ?? 0)}</b></p>{draft.salePrice < (productBySku[draft.sku]?.cost ?? 0) && <p className="mt-1 font-medium text-amber-700">El precio rebajado está por debajo del costo.</p>}</div></>}{error && <p className="rounded-lg bg-rose-50 p-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={!draft} className="w-full">Guardar descuento</Button>{draft && <Button type="button" variant="ghost" className="w-full" onClick={() => { setDraft(null); setError(""); setPickerReset((value) => value + 1) }}>Cancelar</Button>}</form></CardContent></Card>

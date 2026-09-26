@@ -10,22 +10,21 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DEPARTAMENTOS, formatCOP } from "@/lib/data"
-import { calculateShipping, freeShippingProgress, initialShippingSettings, readShippingSettings, SHIPPING_SETTINGS_KEY, SHIPPING_UPDATED_EVENT, type ShippingMethodId, type ShippingSettings } from "@/lib/shipping"
+import { calculateShipping, freeShippingProgress, initialShippingSettings, SHIPPING_UPDATED_EVENT, type ShippingMethodId, type ShippingSettings } from "@/lib/shipping"
+import { getShippingSettings, saveShippingSettings } from "@/services/shipping.service"
 
 export function ShippingSettingsView() {
   const [settings, setSettings] = useState<ShippingSettings>(initialShippingSettings)
   const [saved, setSaved] = useState(false)
   const [preview, setPreview] = useState({ subtotal: 98000, quantity: 4, department: "Bogotá D.C.", method: "standard" as ShippingMethodId })
-  useEffect(() => setSettings(readShippingSettings()), [])
+  useEffect(() => { getShippingSettings().then((result) => setSettings(result.data)).catch(() => {}) }, [])
 
   const quote = calculateShipping(settings, preview)
   const progress = freeShippingProgress(settings, preview.subtotal, preview.quantity)
 
-  function save() {
-    localStorage.setItem(SHIPPING_SETTINGS_KEY, JSON.stringify(settings))
-    window.dispatchEvent(new Event(SHIPPING_UPDATED_EVENT))
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2500)
+  async function save() {
+    try { const result = await saveShippingSettings(settings); setSettings(result.data); window.dispatchEvent(new Event(SHIPPING_UPDATED_EVENT)); setSaved(true); window.setTimeout(() => setSaved(false), 2500) }
+    catch { setSaved(false) }
   }
 
   function updateMethod(id: ShippingMethodId, patch: Partial<ShippingSettings[ShippingMethodId]>) {
@@ -33,7 +32,7 @@ export function ShippingSettingsView() {
   }
 
   return <div className="space-y-5">
-    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">Envíos</h1><Badge variant="outline">Parametrización mock</Badge></div><p className="mt-1 text-sm text-muted-foreground">Define costos, cobertura, tiempos y condiciones para obtener envío gratis.</p></div><Button onClick={save}><Save className="mr-2 h-4 w-4" />{saved ? "Configuración guardada" : "Guardar cambios"}</Button></div>
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">Envíos</h1><Badge variant="outline">PostgreSQL</Badge></div><p className="mt-1 text-sm text-muted-foreground">Define costos, cobertura, tiempos y condiciones para obtener envío gratis.</p></div><Button onClick={save}><Save className="mr-2 h-4 w-4" />{saved ? "Configuración guardada" : "Guardar cambios"}</Button></div>
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Summary icon={Truck} label="Servicio" value={settings.enabled ? "Activo" : "Inactivo"} tone="emerald" /><Summary icon={BadgeDollarSign} label="Tarifa estándar" value={`Desde ${formatCOP(settings.standard.baseCost)}`} tone="sky" /><Summary icon={Box} label="Envío gratis" value={freeRuleSummary(settings)} tone="violet" /><Summary icon={MapPinned} label="Zonas activas" value={String(settings.zones.filter((z) => z.active).length)} tone="amber" /></div>
 

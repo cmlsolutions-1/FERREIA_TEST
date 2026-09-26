@@ -16,23 +16,26 @@ import {
 } from "@/components/ui/table"
 import {
   CATEGORY_SALES,
-  PURCHASES,
   SALES_CHART,
   formatCOP,
 } from "@/lib/data"
 import { BarChart3, Download, FileSpreadsheet, TrendingUp } from "lucide-react"
 import { INVENTORY_UPDATED_EVENT } from "@/lib/orders"
 import { initialProductMaster, PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { getAllPurchaseOrders } from "@/services/purchases.service"
+import type { PurchaseOrder } from "@/lib/purchase-orders"
 
 export default function ReportesPage() {
   const { orders } = useOrders()
   const [products, setProducts] = useState<ProductMaster[]>(initialProductMaster)
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const ventas = orders.filter((order) => order.status !== "Cancelado").reduce((acc, order) => acc + order.total, 0)
-  const compras = PURCHASES.reduce((acc, purchase) => acc + purchase.total, 0)
+  const compras = purchaseOrders.reduce((acc, purchase) => acc + (purchase.invoice ? purchase.invoice.lines.reduce((sum, line) => sum + line.receivedQty * line.invoiceUnitCost, purchase.invoice.freight) : purchase.quotedTotal ?? purchase.lines.reduce((sum, line) => sum + line.orderedQty * line.quotedUnitCost, 0)), 0)
   const margenEstimado = ventas - compras * 0.28
   const bajoMinimo = products.filter((item) => item.stock <= item.stockMin)
 
   useEffect(() => {
+    getAllPurchaseOrders().then(setPurchaseOrders).catch(() => {})
     function loadInventory() { const stored = localStorage.getItem(PRODUCT_STORAGE_KEY); setProducts(stored ? JSON.parse(stored) as ProductMaster[] : initialProductMaster) }
     loadInventory()
     window.addEventListener(INVENTORY_UPDATED_EVENT, loadInventory)

@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation"
 import { ProductDetail } from "@/components/store/product-detail"
-import { getProduct, PRODUCTS } from "@/lib/data"
+import type { Product } from "@/lib/data"
+import { serverApiRequest } from "@/services/server-api"
 
-export function generateStaticParams() {
-  return PRODUCTS.map((p) => ({ id: p.id }))
-}
+export const dynamic = "force-dynamic"
 
 export default async function ProductPage({
   params,
@@ -12,7 +11,8 @@ export default async function ProductPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const product = getProduct(id)
-  if (!product) notFound()
+  let product: Product
+  try { product = (await serverApiRequest<Product>(`/api/products/${encodeURIComponent(id)}`)).data }
+  catch { notFound() }
   return <ProductDetail product={product} />
 }
