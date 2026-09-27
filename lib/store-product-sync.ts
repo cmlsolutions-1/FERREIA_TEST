@@ -22,8 +22,8 @@ export function applyMasterToStoreProduct(product: Product, master: ProductMaste
     badge: activePromotion ? activePromotion.kind === "outlet" ? "Outlet" : "Oferta" : product.badge === "Oferta" || product.badge === "Outlet" ? undefined : product.badge,
     priceTiers: {
       unit: { ...product.priceTiers.unit, unitPrice: price },
-      inner: { ...product.priceTiers.inner, unitPrice: Math.round(price * 0.9) },
-      master: { ...product.priceTiers.master, unitPrice: Math.round(price * 0.85) },
+      inner: master?.priceTiers.inner ?? product.priceTiers.inner,
+      master: master?.priceTiers.master ?? product.priceTiers.master,
     },
   }
 }

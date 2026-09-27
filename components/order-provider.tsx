@@ -3,14 +3,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import type { CreateOrderInput, FerreiaOrder } from "@/lib/orders"
-import { createOrder as saveOrder, getOrders, getMyOrders, updateOrder as saveOrderUpdate } from "@/services/orders.service"
+import { createOrder as saveOrder, getAllOrders, getMyOrders, updateOrder as saveOrderUpdate } from "@/services/orders.service"
 import { useCustomerSession } from "@/components/customer-session-provider"
 
 type OrderUpdate = Partial<Pick<FerreiaOrder, "carrier" | "trackingNumber" | "estimatedFrom" | "estimatedTo" | "currentLocation" | "status" | "paymentStatus">>
 type OrderContextValue = {
   orders: FerreiaOrder[]
   createOrder: (input: CreateOrderInput) => Promise<{ order: FerreiaOrder | null; error: string | null }>
-  updateOrder: (id: string, patch: OrderUpdate, detail?: string) => Promise<void>
+  updateOrder: (id: string, patch: OrderUpdate, detail?: string) => Promise<FerreiaOrder>
   findOrder: (id: string, email?: string, customerId?: string | null) => FerreiaOrder | null
 }
 
@@ -24,7 +24,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!pathname.startsWith("/admin") || pathname === "/admin/login") return
     let active = true
-    getOrders().then((result) => { if (active) setOrders(result.data) }).catch(() => {})
+    getAllOrders().then((result) => { if (active) setOrders(result) }).catch(() => {})
     return () => { active = false }
   }, [pathname])
   useEffect(() => { if (pathname.startsWith("/admin") || !user) return; let active = true; getMyOrders().then((result) => { if (active) setOrders(result.data) }).catch(() => {}); return () => { active = false } }, [pathname, user])
@@ -42,6 +42,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   async function updateOrder(id: string, patch: OrderUpdate, detail = "") {
     const result = await saveOrderUpdate(id, { ...patch, detail })
     setOrders((previous) => previous.map((order) => order.id === id ? result.data : order))
+    return result.data
   }
 
   function findOrder(id: string, email = "", customerId: string | null = null) {

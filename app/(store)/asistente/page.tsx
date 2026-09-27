@@ -2,14 +2,15 @@
 
 import type React from "react"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { PRODUCTS, formatCOP } from "@/lib/data"
+import { formatCOP, type Product } from "@/lib/data"
+import { getAllProducts } from "@/services/products.service"
 import { Bot, Send, Sparkles, User } from "lucide-react"
 
 type ChatMessage = {
@@ -34,32 +35,32 @@ const INITIAL: ChatMessage[] = [
   },
 ]
 
-function buildAssistantReply(input: string): ChatMessage {
+function buildAssistantReply(input: string, products: Product[]): ChatMessage {
   const text = input.toLowerCase()
   let reply =
     "Con gusto te ayudo. Para tu proyecto te recomiendo revisar estos productos de nuestro catálogo, son los más adecuados y tienen buena rotación entre nuestros clientes:"
-  let picks: typeof PRODUCTS = []
+  let picks: Product[] = []
 
   if (text.includes("televisor") || text.includes("drywall") || text.includes("colgar") || text.includes("pared")) {
     reply =
       "Para colgar un televisor en pared de drywall necesitas un soporte con anclajes tipo mariposa, un taladro para hacer las perforaciones y un nivel para que quede derecho. Aquí tienes lo esencial:"
-    picks = PRODUCTS.filter((p) =>
+    picks = products.filter((p) =>
       ["herramientas-electricas", "tornilleria", "herramientas-manuales"].includes(p.category),
     ).slice(0, 3)
   } else if (text.includes("pintar") || text.includes("pintura") || text.includes("habitaci")) {
     reply =
       "Para pintar una habitación te recomiendo rodillos de buena calidad, cinta de enmascarar para proteger bordes y la pintura adecuada según el acabado que busques. Mira estas opciones:"
-    picks = PRODUCTS.filter((p) => p.category === "pinturas-acabados").slice(0, 3)
+    picks = products.filter((p) => p.category === "pinturas-acabados").slice(0, 3)
   } else if (text.includes("concreto") || text.includes("taladro") || text.includes("perfora")) {
     reply =
       "Para perforar concreto necesitas un taladro percutor (rotomartillo) con brocas de tungsteno. Estos modelos tienen la potencia adecuada:"
-    picks = PRODUCTS.filter((p) => p.subcategory === "Taladros" || p.category === "herramientas-electricas").slice(0, 3)
+    picks = products.filter((p) => p.subcategory === "Taladros" || p.category === "herramientas-electricas").slice(0, 3)
   } else if (text.includes("puerta") || text.includes("cerradura") || text.includes("asegurar") || text.includes("seguridad")) {
     reply =
       "Para asegurar una puerta lo ideal es una cerradura de alta seguridad con cilindro antibumping. Te recomiendo estas opciones de seguridad:"
-    picks = PRODUCTS.filter((p) => p.category === "cerrajeria" || p.category === "seguridad-industrial").slice(0, 3)
+    picks = products.filter((p) => p.category === "cerrajeria" || p.category === "seguridad-industrial").slice(0, 3)
   } else {
-    picks = PRODUCTS.slice(0, 3)
+    picks = products.slice(0, 3)
   }
 
   return {
@@ -71,10 +72,17 @@ function buildAssistantReply(input: string): ChatMessage {
 }
 
 export default function AsistentePage() {
+  const [products, setProducts] = useState<Product[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL)
   const [input, setInput] = useState("")
   const [typing, setTyping] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let active = true
+    getAllProducts({ active: true }).then((items) => { if (active) setProducts(items) }).catch(() => {})
+    return () => { active = false }
+  }, [])
 
   function send(value: string) {
     const trimmed = value.trim()
@@ -84,7 +92,7 @@ export default function AsistentePage() {
     setInput("")
     setTyping(true)
     setTimeout(() => {
-      setMessages((prev) => [...prev, buildAssistantReply(trimmed)])
+      setMessages((prev) => [...prev, buildAssistantReply(trimmed, products)])
       setTyping(false)
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
     }, 900)
@@ -128,7 +136,7 @@ export default function AsistentePage() {
               {m.productIds && m.productIds.length > 0 && (
                 <div className="grid gap-2 text-left sm:grid-cols-3">
                   {m.productIds.map((pid) => {
-                    const p = PRODUCTS.find((x) => x.id === pid)
+                    const p = products.find((x) => x.id === pid)
                     if (!p) return null
                     return (
                       <Link key={pid} href={`/producto/${p.id}`}>
@@ -193,7 +201,7 @@ export default function AsistentePage() {
         </Button>
       </form>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        FerreBot es una demostración. Las recomendaciones se basan en datos de ejemplo.
+        FerreBot es una demostración. Las recomendaciones consultan los productos activos del catálogo actual.
       </p>
     </div>
   )

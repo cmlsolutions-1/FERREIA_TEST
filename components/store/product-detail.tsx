@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -20,12 +20,13 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { useCart } from "@/components/cart-provider"
-import { formatCOP, relatedProducts, type Product } from "@/lib/data"
+import { formatCOP, type Product } from "@/lib/data"
 import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { useLiveProduct } from "@/components/use-live-stock"
 import { useShippingSettings } from "@/components/use-shipping-settings"
 import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
+import { getProducts } from "@/services/products.service"
 
 export function ProductDetail({ product: initialProduct }: { product: Product }) {
   const product = useLiveProduct(initialProduct)
@@ -35,6 +36,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
+  const [related, setRelated] = useState<Product[]>([])
   const stock = product.stock
   const pricing = calculateTieredPrice(product, qty)
   const shippingMethod = shippingSettings.standard.active ? "standard" : "express"
@@ -47,7 +49,13 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
     `/placeholder.svg?height=600&width=600&query=${encodeURIComponent(product.name + " detail")}`,
     `/placeholder.svg?height=600&width=600&query=${encodeURIComponent(product.name + " packaging")}`,
   ]
-  const related = relatedProducts(product)
+  useEffect(() => {
+    let active = true
+    getProducts({ active: true, category: product.category, page: 1, limit: 5 })
+      .then((result) => { if (active) setRelated(result.data.filter((item) => item.id !== product.id).slice(0, 4)) })
+      .catch(() => { if (active) setRelated([]) })
+    return () => { active = false }
+  }, [product.category, product.id])
 
   function handleAdd() {
     if (stock <= 0 || qty > stock) return

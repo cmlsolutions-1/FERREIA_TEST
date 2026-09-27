@@ -222,6 +222,14 @@ model Promotion {
   regularPrice Decimal  @db.Decimal(14, 2)
   salePrice    Decimal  @db.Decimal(14, 2)
   basePrice    Decimal  @db.Decimal(14, 2)
+  baseInnerPrice  Decimal @default(0) @db.Decimal(14, 2)
+  baseMasterPrice Decimal @default(0) @db.Decimal(14, 2)
+  unitEnabled    Boolean @default(true)
+  unitDiscount   Decimal @default(0) @db.Decimal(5, 2)
+  innerEnabled   Boolean @default(false)
+  innerDiscount  Decimal @default(0) @db.Decimal(5, 2)
+  masterEnabled  Boolean @default(false)
+  masterDiscount Decimal @default(0) @db.Decimal(5, 2)
   startsAt     DateTime?
   endsAt       DateTime?
   active       Boolean  @default(true)

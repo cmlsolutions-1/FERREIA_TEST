@@ -1,16 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { initialPromotions, promotionBySku, PROMOTIONS_UPDATED_EVENT, readPromotions } from "@/lib/promotions"
+import { promotionBySku, PROMOTIONS_UPDATED_EVENT, type Promotion } from "@/lib/promotions"
+import { getPromotions } from "@/services/promotions.service"
 
 export function usePromotionsBySku() {
-  const [promotions, setPromotions] = useState(() => promotionBySku(initialPromotions))
+  const [promotions, setPromotions] = useState<Record<string, Promotion>>({})
   useEffect(() => {
-    const load = () => setPromotions(promotionBySku(readPromotions()))
-    load()
+    let active = true
+    const load = () => getPromotions().then((result) => { if (active) setPromotions(promotionBySku(result.data)) }).catch(() => {})
+    void load()
     window.addEventListener(PROMOTIONS_UPDATED_EVENT, load)
-    window.addEventListener("storage", load)
-    return () => { window.removeEventListener(PROMOTIONS_UPDATED_EVENT, load); window.removeEventListener("storage", load) }
+    return () => { active = false; window.removeEventListener(PROMOTIONS_UPDATED_EVENT, load) }
   }, [])
   return promotions
 }

@@ -1,10 +1,11 @@
-import { INVENTORY } from "@/lib/data"
+import { INVENTORY, type ProductPriceTiers } from "@/lib/data"
 
 export type WarehouseRecord = { id: string; code: string; name: string; address: string; manager: string; type: "Principal" | "Auxiliar" | "Punto de venta"; active: boolean }
 export type ProductMaster = {
   id: string; reference: string; supplierReference: string; name: string; sku: string
   barcodes: { presentation: "Unidad" | "Inner" | "Master" | "Alterno"; code: string }[]
   line: string; brand: string; group: string; subgroup: string; packaging: { inner: number; master: number }
+  priceTiers: ProductPriceTiers
   unit: string; weight: number; cost: number; price: number; taxRate: number; warehouse: string
   stock: number; stockMin: number; stockMax: number; images: string[]; suppliers: string[]
   characteristics: string; active: boolean
@@ -32,6 +33,11 @@ export const initialProductMaster: ProductMaster[] = INVENTORY.map((item, index)
   barcodes: [{ presentation: "Unidad", code: item.barcode }, { presentation: "Inner", code: `${item.barcode}-IN` }, { presentation: "Master", code: `${item.barcode}-MA` }],
   line: item.categoria, brand: item.marca, group: item.categoria, subgroup: item.subcategoria,
   packaging: { inner: 10, master: 30 }, unit: item.unidad, weight: 0, cost: item.costo, price: item.precio, taxRate: 19,
+  priceTiers: {
+    unit: { label: "Unidad", quantity: 1, unitPrice: item.precio },
+    inner: { label: "Caja inner", quantity: 10, unitPrice: item.precio },
+    master: { label: "Caja master", quantity: 30, unitPrice: item.precio },
+  },
   warehouse: item.bodega, stock: item.stockActual, stockMin: item.stockMin, stockMax: Math.max(item.stockMin * 5, item.stockActual + 50),
   images: [], suppliers: [index % 2 ? "Importadora Truper S.A." : "Distribuidora Bosch Colombia"], characteristics: `${item.marca} · ${item.subcategoria}`, active: true,
 }))

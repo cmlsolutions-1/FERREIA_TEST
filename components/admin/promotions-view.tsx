@@ -15,7 +15,7 @@ import { discountPercent, promotionStatus, PROMOTIONS_UPDATED_EVENT, type Promot
 import { getAllProducts, type ProductRecord } from "@/services/products.service"
 import { getPromotions, savePromotion, removePromotion } from "@/services/promotions.service"
 
-function toMaster(product: ProductRecord): ProductMaster { return { id: product.sku, reference: product.reference, supplierReference: product.supplierReference, name: product.name, sku: product.sku, barcodes: product.barcodes, line: product.line, brand: product.brand, group: product.group, subgroup: product.subgroup, packaging: product.packaging, unit: product.unit, weight: product.weight, cost: product.cost, price: product.basePrice, taxRate: product.taxRate, warehouse: product.warehouse, stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax, images: product.images, suppliers: product.suppliers, characteristics: product.characteristics, active: product.active, markupPercent: product.markupPercent, costReview: product.costReview } }
+function toMaster(product: ProductRecord): ProductMaster { return { id: product.sku, reference: product.reference, supplierReference: product.supplierReference, name: product.name, sku: product.sku, barcodes: product.barcodes, line: product.line, brand: product.brand, group: product.group, subgroup: product.subgroup, packaging: product.packaging, priceTiers: product.priceTiers, unit: product.unit, weight: product.weight, cost: product.cost, price: product.basePrice, taxRate: product.taxRate, warehouse: product.warehouse, stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax, images: product.images, suppliers: product.suppliers, characteristics: product.characteristics, active: product.active, markupPercent: product.markupPercent, costReview: product.costReview } }
 
 export function PromotionsView() {
   const [products, setProducts] = useState<ProductMaster[]>([])
@@ -26,14 +26,12 @@ export function PromotionsView() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    const loadProducts = () => { getAllProducts({ admin: true }).then((items) => setProducts(items.map(toMaster))).catch(() => {}) }
-    const loadPromotions = () => { getPromotions().then((result) => setPromotions(result.data)).catch(() => {}) }
+    const loadProducts = () => { getAllProducts({ admin: true }).then((items) => setProducts(items.map(toMaster))).catch((failure) => setError(failure instanceof Error ? failure.message : "No fue posible cargar los artículos")) }
+    const loadPromotions = () => { getPromotions().then((result) => setPromotions(result.data)).catch((failure) => setError(failure instanceof Error ? failure.message : "No fue posible cargar las promociones")) }
     loadProducts(); loadPromotions()
     window.addEventListener(PRODUCT_UPDATED_EVENT, loadProducts)
     window.addEventListener(PROMOTIONS_UPDATED_EVENT, loadPromotions)
-    window.addEventListener("storage", loadProducts)
-    window.addEventListener("storage", loadPromotions)
-    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, loadProducts); window.removeEventListener(PROMOTIONS_UPDATED_EVENT, loadPromotions); window.removeEventListener("storage", loadProducts); window.removeEventListener("storage", loadPromotions) }
+    return () => { window.removeEventListener(PRODUCT_UPDATED_EVENT, loadProducts); window.removeEventListener(PROMOTIONS_UPDATED_EVENT, loadPromotions) }
   }, [])
 
   const storefrontProducts = products
@@ -92,7 +90,9 @@ function ProductSearchPicker({ products, promotions, selected, resetKey, onSelec
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(-1)
 
-  useEffect(() => { if (selected) { setSearch(selected.name); setOpen(false); setHighlighted(-1) } }, [selected?.sku, selected?.name])
+  const selectedSku = selected?.sku
+  const selectedName = selected?.name
+  useEffect(() => { if (selectedSku && selectedName) { setSearch(selectedName); setOpen(false); setHighlighted(-1) } }, [selectedSku, selectedName])
   useEffect(() => { if (resetKey > 0) { setSearch(""); setOpen(false); setHighlighted(-1) } }, [resetKey])
 
   const normalizedQuery = normalizeSearch(search)

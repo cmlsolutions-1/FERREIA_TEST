@@ -16,11 +16,11 @@ export function productToDto(product: Record) {
   const today = new Date()
   const validPromotion = promotion && promotion.active && number(promotion.basePrice) === number(product.price) && number(promotion.salePrice) > 0 && number(promotion.salePrice) < number(promotion.regularPrice) && (!promotion.startsAt || promotion.startsAt <= today) && (!promotion.endsAt || promotion.endsAt >= today)
   const price = validPromotion ? number(promotion.salePrice) : number(product.price)
-  const storedTiers = Object.fromEntries(product.priceTiers.map((tier) => [tier.kind, { label: tier.label, quantity: tier.quantity, unitPrice: validPromotion && price !== number(product.price) ? tier.kind === "unit" ? price : Math.round(price * (tier.kind === "inner" ? 0.9 : 0.85)) : number(tier.unitPrice) }]))
+  const storedTiers = Object.fromEntries(product.priceTiers.map((tier) => [tier.kind, { label: tier.label, quantity: tier.quantity, unitPrice: number(tier.unitPrice) }]))
   const tiers = {
-    unit: storedTiers.unit ?? { label: "Unidad", quantity: 1, unitPrice: price },
-    inner: storedTiers.inner ?? { label: "Caja inner", quantity: product.packagingInner, unitPrice: Math.round(price * 0.9) },
-    master: storedTiers.master ?? { label: "Caja master", quantity: product.packagingMaster, unitPrice: Math.round(price * 0.85) },
+    unit: storedTiers.unit ? { ...storedTiers.unit, quantity: 1, unitPrice: price } : { label: "Unidad", quantity: 1, unitPrice: price },
+    inner: storedTiers.inner ?? { label: "Caja inner", quantity: product.packagingInner, unitPrice: price },
+    master: storedTiers.master ?? { label: "Caja master", quantity: product.packagingMaster, unitPrice: price },
   }
   return {
     id: product.id, reference: product.reference, supplierReference: product.supplierReference,
@@ -31,7 +31,7 @@ export function productToDto(product: Record) {
     unit: product.unit, weight: number(product.weight), cost: number(product.cost), basePrice: number(product.price),
     price, oldPrice: validPromotion ? number(promotion.regularPrice) : undefined, taxRate: number(product.taxRate),
     stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax,
-    packaging: { inner: product.packagingInner, master: product.packagingMaster },
+    packaging: { inner: tiers.inner.quantity, master: tiers.master.quantity },
     markupPercent: product.markupPercent ? number(product.markupPercent) : undefined,
     active: product.active, rating: product.rating, reviews: product.reviews,
     badge: validPromotion ? promotion.kind === "outlet" ? "Outlet" : "Oferta" : product.badge,
@@ -67,10 +67,12 @@ function nested(input: Create | Update, replace: boolean) {
 
 function scalars(input: Create | Update) {
   const { images, barcodes, priceTiers, specs, compatibilities, supplierIds, ...rest } = input
-  void images; void barcodes; void priceTiers; void specs; void compatibilities; void supplierIds
+  void images; void barcodes; void specs; void compatibilities; void supplierIds
   const { costReviewPending, ...values } = rest as typeof rest & { costReviewPending?: boolean }
   void costReviewPending
-  return values
+  const inner = priceTiers?.find((tier) => tier.kind === "inner")
+  const master = priceTiers?.find((tier) => tier.kind === "master")
+  return { ...values, ...(inner ? { packagingInner: inner.quantity } : {}), ...(master ? { packagingMaster: master.quantity } : {}) }
 }
 
 export const productService = {

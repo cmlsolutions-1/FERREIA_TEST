@@ -27,7 +27,7 @@ export function orderToDto(order: Order) {
 export const orderService = {
   async listForCustomer(customerId: string, email: string) { return (await orderRepository.list({ OR: [{ customerId }, { email: { equals: email, mode: "insensitive" } }] }, 0, 100)).map(orderToDto) },
   async list(filters: z.infer<typeof orderFiltersSchema>) {
-    const where: Prisma.OrderWhereInput = { ...(filters.status ? { status: filters.status } : {}), ...(filters.search ? { OR: [{ id: { contains: filters.search, mode: "insensitive" } }, { email: { contains: filters.search, mode: "insensitive" } }, { customerName: { contains: filters.search, mode: "insensitive" } }] } : {}) }
+    const where: Prisma.OrderWhereInput = { ...(filters.status ? { status: filters.status } : {}), ...(filters.search ? { OR: [{ id: { contains: filters.search, mode: "insensitive" } }, { email: { contains: filters.search, mode: "insensitive" } }, { customerName: { contains: filters.search, mode: "insensitive" } }, { document: { contains: filters.search, mode: "insensitive" } }, { phone: { contains: filters.search, mode: "insensitive" } }, { city: { contains: filters.search, mode: "insensitive" } }, { carrier: { contains: filters.search, mode: "insensitive" } }, { trackingNumber: { contains: filters.search, mode: "insensitive" } }] } : {}) }
     const [orders, total] = await Promise.all([orderRepository.list(where, (filters.page - 1) * filters.limit, filters.limit), orderRepository.count(where)])
     return { data: orders.map(orderToDto), meta: paginationMeta(filters.page, filters.limit, total) }
   },
@@ -46,8 +46,7 @@ export const orderService = {
         const promoActive = promo?.active && n(promo.basePrice) === n(product.price) && (!promo.startsAt || promo.startsAt <= new Date()) && (!promo.endsAt || promo.endsAt >= new Date())
         const basePrice = promoActive ? n(promo.salePrice) : n(product.price)
         const tier = [...product.priceTiers].filter((t) => item.quantity >= t.quantity).sort((a, b) => b.quantity - a.quantity)[0]
-        const fallbackPrice = product.packagingMaster > 1 && item.quantity >= product.packagingMaster ? Math.round(basePrice * 0.85) : product.packagingInner > 1 && item.quantity >= product.packagingInner ? Math.round(basePrice * 0.9) : basePrice
-        const unitPrice = tier && !promoActive ? n(tier.unitPrice) : fallbackPrice
+        const unitPrice = tier && tier.kind !== "unit" ? n(tier.unitPrice) : basePrice
         tax += Math.round(unitPrice * item.quantity * n(product.taxRate) / 100)
         lines.push({ productId: product.id, sku: product.sku, name: product.name, image: product.images[0]?.url ?? "/placeholder.svg", quantity: item.quantity, unitPrice, total: unitPrice * item.quantity })
         await tx.inventoryMovement.create({ data: { productId: product.id, quantity: -item.quantity, kind: "SALE", referenceId: id, warehouseName: "" } })
@@ -71,8 +70,9 @@ export const orderService = {
     if (!existing) throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido")
     await prisma.$transaction(async (tx) => {
       const cancel = input.status === "Cancelado" && existing.status !== "Cancelado" && existing.inventoryApplied && !existing.inventoryRestored
+      const timelineChanged = Boolean(input.detail || (input.status && input.status !== existing.status) || (input.currentLocation !== undefined && input.currentLocation !== existing.currentLocation))
       if (cancel) for (const item of existing.items) if (item.productId) { await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } }); await tx.inventoryMovement.create({ data: { productId: item.productId, quantity: item.quantity, kind: "CANCELLATION", referenceId: id, warehouseName: "" } }) }
-      await tx.order.update({ where: { id }, data: { status: input.status, paymentStatus: cancel && existing.paymentStatus === "Pagado" ? "Reembolsado" : input.paymentStatus, carrier: input.carrier, trackingNumber: input.trackingNumber, currentLocation: input.currentLocation, estimatedFrom: input.estimatedFrom ? new Date(input.estimatedFrom) : undefined, estimatedTo: input.estimatedTo ? new Date(input.estimatedTo) : undefined, inventoryRestored: cancel ? true : existing.inventoryRestored, ...(input.status || input.currentLocation || input.detail ? { timeline: { create: { id: crypto.randomUUID(), status: input.status ?? existing.status, title: input.status ?? existing.status, detail: input.detail || `El pedido cambió al estado ${(input.status ?? existing.status).toLowerCase()}.`, location: input.currentLocation ?? existing.currentLocation, occurredAt: new Date() } } } : {}) } })
+      await tx.order.update({ where: { id }, data: { status: input.status, paymentStatus: cancel && existing.paymentStatus === "Pagado" ? "Reembolsado" : input.paymentStatus, carrier: input.carrier, trackingNumber: input.trackingNumber, currentLocation: input.currentLocation, estimatedFrom: input.estimatedFrom ? new Date(input.estimatedFrom) : undefined, estimatedTo: input.estimatedTo ? new Date(input.estimatedTo) : undefined, inventoryRestored: cancel ? true : existing.inventoryRestored, ...(timelineChanged ? { timeline: { create: { id: crypto.randomUUID(), status: input.status ?? existing.status, title: input.status ?? existing.status, detail: input.detail || `El pedido cambió al estado ${(input.status ?? existing.status).toLowerCase()}.`, location: input.currentLocation ?? existing.currentLocation, occurredAt: new Date() } } } : {}) } })
     })
     return this.get(id)
   },

@@ -1,6 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import Link from "next/link"
 import { PageHeader } from "@/components/admin/page-header"
 import { DashboardCharts } from "@/components/admin/dashboard-charts"
@@ -17,26 +16,18 @@ import {
 } from "@/components/ui/table"
 import { KPIS, formatCOP } from "@/lib/data"
 import { useOrders } from "@/components/order-provider"
-import { INVENTORY_UPDATED_EVENT, type OrderStatus } from "@/lib/orders"
-import { initialProductMaster, PRODUCT_STORAGE_KEY, type ProductMaster } from "@/lib/product-master"
+import { type OrderStatus } from "@/lib/orders"
+import { useLiveProductMaster } from "@/components/use-live-stock"
 import { ArrowUpRight, ArrowDownRight, AlertTriangle, Download } from "lucide-react"
 
 function statusColor(status: OrderStatus) { return status === "Cancelado" ? "bg-rose-100 text-rose-800" : status === "Entregado" ? "bg-emerald-100 text-emerald-800" : ["Enviado", "En centro de distribución", "En tránsito", "En reparto"].includes(status) ? "bg-sky-100 text-sky-800" : "bg-amber-100 text-amber-800" }
 
 export default function AdminDashboardPage() {
   const { orders } = useOrders()
-  const [products, setProducts] = useState<ProductMaster[]>(initialProductMaster)
+  const products = Object.values(useLiveProductMaster())
   const lowStock = products.filter((product) => product.stock <= product.stockMin)
   const activeOrders = orders.filter((order) => !["Entregado", "Cancelado"].includes(order.status)).length
   const dashboardKpis = [...KPIS.filter((kpi) => kpi.label !== "Pedidos pendientes"), { label: "Pedidos activos", value: String(activeOrders), delta: "En gestión", positive: activeOrders === 0 }]
-
-  useEffect(() => {
-    function loadInventory() { const stored = localStorage.getItem(PRODUCT_STORAGE_KEY); setProducts(stored ? JSON.parse(stored) as ProductMaster[] : initialProductMaster) }
-    loadInventory()
-    window.addEventListener(INVENTORY_UPDATED_EVENT, loadInventory)
-    window.addEventListener("storage", loadInventory)
-    return () => { window.removeEventListener(INVENTORY_UPDATED_EVENT, loadInventory); window.removeEventListener("storage", loadInventory) }
-  }, [])
 
   return (
     <div>

@@ -2,7 +2,7 @@ import { z } from "zod"
 import { paginationSchema } from "@/server/shared/pagination"
 import { ORDER_STATUSES } from "@/lib/orders"
 
-export const orderFiltersSchema = paginationSchema.extend({ status: z.string().optional(), search: z.string().max(120).optional() })
+export const orderFiltersSchema = paginationSchema.extend({ status: z.enum(ORDER_STATUSES).optional(), search: z.string().max(120).optional() })
 export const createOrderSchema = z.object({
   customerId: z.string().nullable().optional(), guest: z.boolean(), customerName: z.string().trim().min(2),
   document: z.string().trim().min(3), email: z.email(), phone: z.string().trim().min(5),

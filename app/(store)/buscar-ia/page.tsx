@@ -1,26 +1,33 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { Camera, Upload, Sparkles, Loader2, ScanLine, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ProductCard, RatingStars } from "@/components/store/product-card"
 import { useCart } from "@/components/cart-provider"
-import { PRODUCTS, relatedProducts, formatCOP } from "@/lib/data"
+import { formatCOP, type Product } from "@/lib/data"
+import { getProducts } from "@/services/products.service"
 
 type Phase = "idle" | "scanning" | "result"
 
 export default function BuscarIaPage() {
   const { addItem } = useCart()
+  const [products, setProducts] = useState<Product[]>([])
   const [phase, setPhase] = useState<Phase>("idle")
   const [preview, setPreview] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // El resultado de la IA está "quemado": reconoce el bombillo LED de ejemplo.
-  const match = PRODUCTS[0]
-  const similares = relatedProducts(match)
+  const match = products[0]
+  const similares = match ? products.filter((product) => product.id !== match.id && product.category === match.category).slice(0, 4) : []
   const [added, setAdded] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    getProducts({ active: true, page: 1, limit: 12 }).then((result) => { if (active) setProducts(result.data) }).catch(() => {})
+    return () => { active = false }
+  }, [])
 
   function handleFile(file?: File) {
     if (file) setPreview(URL.createObjectURL(file))
@@ -90,7 +97,7 @@ export default function BuscarIaPage() {
         </div>
       )}
 
-      {phase === "result" && (
+      {phase === "result" && match && (
         <div className="mt-8">
           <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6">
             <Badge className="border-0 bg-accent text-accent-foreground">
@@ -150,6 +157,7 @@ export default function BuscarIaPage() {
           </div>
         </div>
       )}
+      {phase === "result" && !match && <p className="mt-8 rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No fue posible consultar el catálogo de productos. Intenta nuevamente.</p>}
     </div>
   )
 }
