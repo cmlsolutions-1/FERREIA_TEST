@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'FERREIA — Ferretería Digital Inteligente para Colombia',
+  title: 'TOOLIST — Ferretería Digital Inteligente para Colombia',
   description:
     'Plataforma de ferretería con ecommerce nacional, búsqueda por imagen con IA, asistente ferretero y ERP de inventarios y ventas. Envíos a toda Colombia.',
   generator: 'v0.app',

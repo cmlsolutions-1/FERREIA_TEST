@@ -5,6 +5,7 @@ const money = z.number().finite().nonnegative().max(1_000_000_000)
 const barcodeSchema = z.object({ presentation: z.enum(["Unidad", "Inner", "Master", "Alterno"]), code: z.string().trim().min(1).max(100) })
 const tierSchema = z.object({ kind: z.enum(["unit", "inner", "master"]), label: z.string().trim().min(1), quantity: z.number().int().positive(), unitPrice: money.positive() })
 const priceTiersSchema = z.array(tierSchema).length(3).refine((tiers) => new Set(tiers.map((tier) => tier.kind)).size === 3, "Debes definir un precio para unidad, inner y master")
+const productImageUrlSchema = z.string().trim().min(1).max(2048).refine((value) => (value.startsWith("/") && !value.startsWith("//")) || value.startsWith("https://"), "Usa una URL HTTPS o una ruta local de imagen")
 
 export const productFiltersSchema = paginationSchema.extend({
   search: z.string().trim().max(120).optional(), category: z.string().trim().max(120).optional(),
@@ -29,7 +30,7 @@ export const createProductSchema = z.object({
   active: z.boolean().default(true), rating: z.number().min(0).max(5).default(0),
   reviews: z.number().int().nonnegative().default(0), badge: z.string().nullable().optional(),
   power: z.string().nullable().optional(), size: z.string().nullable().optional(), material: z.string().nullable().optional(),
-  images: z.array(z.string().trim().min(1)).max(10).default([]),
+  images: z.array(productImageUrlSchema).max(10).default([]),
   barcodes: z.array(barcodeSchema).default([]), priceTiers: priceTiersSchema,
   specs: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
   compatibilities: z.array(z.string()).default([]), supplierIds: z.array(z.string()).default([]),

@@ -12,6 +12,7 @@ El frontend React llama a los Route Handlers de `app/api`. Cada ruta valida con 
 - `POSTGRES_PORT` es el puerto del host; `APP_PORT` permite elegir el puerto de la aplicación. Si 5432 u 3000 están ocupados, usa otros puertos libres.
 - Con `npm run dev` en el host, `DATABASE_URL` usa `localhost:${POSTGRES_PORT}`. Dentro del servicio `app`, Compose configura automáticamente el host `postgres:5432`.
 - Ninguna variable de base de datos o contraseña lleva prefijo `NEXT_PUBLIC_`.
+- Para imágenes de artículos configura `SPACES_BUCKET`, `SPACES_KEY`, `SPACES_SECRET`, `SPACES_ENDPOINT` y `SPACES_URL_CDN` en `.env`. El endpoint apunta a la región de DigitalOcean Spaces y la URL CDN al bucket público. Las credenciales permanecen exclusivamente en el servidor; Compose las transmite al servicio `app`.
 
 ## Desarrollo con Next.js local y PostgreSQL en Docker
 
@@ -38,7 +39,7 @@ docker compose logs -f postgres
 
 El servicio `app` espera el healthcheck `pg_isready`, aplica las migraciones con `prisma migrate deploy`, ejecuta el seed y arranca el servidor standalone de Next.js. Para nuevas migraciones en desarrollo usa `npx prisma migrate dev --name nombre_del_cambio`; versiona `prisma/migrations/`. En producción se aplica `npx prisma migrate deploy`. No se usa `prisma db push` como procedimiento de despliegue.
 
-`docker compose down` elimina contenedores y conserva `postgres_data`. `docker compose up -d` los vuelve a crear con los mismos datos. **`docker compose down -v` elimina los volúmenes y la base de datos**; no lo uses en mantenimiento normal. Las imágenes cargadas por la API se guardan en `uploads_data`.
+`docker compose down` elimina contenedores y conserva `postgres_data`. `docker compose up -d` los vuelve a crear con los mismos datos. **`docker compose down -v` elimina los volúmenes y la base de datos**; no lo uses en mantenimiento normal. Las imágenes nuevas se almacenan en DigitalOcean Spaces; `uploads_data` se conserva para las imágenes locales cargadas anteriormente.
 
 ## Endpoints
 
@@ -61,6 +62,8 @@ El servicio `app` espera el healthcheck `pg_isready`, aplica las migraciones con
 | Clientes | `GET, POST /api/customers` | Admin; directorio de cuentas y clientes CRM, con compras calculadas desde pedidos |
 | Reportes | `GET /api/reports/summary`; `GET /api/reports/export/:kind` | Admin; indicadores consolidados y exportaciones CSV de resumen, ventas, inventario y compras |
 | Imágenes | `POST /api/uploads/product-image` | Admin |
+
+En Catálogo de artículos > Crear nuevo artículo > Anexos, cada JPG, PNG o WEBP (máximo 5 MB por imagen, hasta 10 imágenes por producto) se envía a Spaces. La API devuelve la URL CDN y el producto guarda esa URL al confirmar el formulario. La primera imagen aparece como principal en la tienda. El bucket debe permitir lectura pública de estos objetos. Quitar una imagen del formulario o cancelar la creación no elimina el objeto ya subido de Spaces; conviene revisar periódicamente los objetos sin referencia.
 
 Las colecciones de productos, categorías, marcas, bodegas, existencias, pedidos, compras y pagos aceptan `page` y `limit` (máximo 100). Productos admite `search`, `category`, `brand`, `minPrice`, `maxPrice`, `active`, `featured` y `sort`. Existencias admite `search` y `warehouseId`; el resumen usa los mismos filtros y calcula unidades, valoración y bajo mínimo sobre todos los artículos coincidentes. La búsqueda y los filtros se ejecutan en PostgreSQL. Para probar, consulta `/api/products?search=taladro&page=1&limit=20`.
 
