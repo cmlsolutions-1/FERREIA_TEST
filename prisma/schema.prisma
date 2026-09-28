@@ -325,6 +325,7 @@ model OrderItem {
   productId String?
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   sku       String
+  reference String  @default("")
   name      String
   image     String
   quantity  Int

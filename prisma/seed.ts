@@ -81,7 +81,14 @@ async function main() {
   for (const promotion of initialPromotions) {
     const product = await prisma.product.findUnique({ where: { sku: promotion.sku }, select: { id: true } })
     if (!product) continue
-    await prisma.promotion.upsert({ where: { productId: product.id }, update: {}, create: { productId: product.id, kind: promotion.kind, regularPrice: promotion.regularPrice, salePrice: promotion.salePrice, basePrice: promotion.basePrice, active: promotion.active } })
+    await prisma.promotion.upsert({ where: { productId: product.id }, update: {}, create: {
+      productId: product.id, kind: promotion.kind, regularPrice: promotion.regularPrice, salePrice: promotion.salePrice, basePrice: promotion.basePrice,
+      baseInnerPrice: promotion.basePrices.inner, baseMasterPrice: promotion.basePrices.master,
+      unitEnabled: promotion.tiers.unit.enabled, unitDiscount: promotion.tiers.unit.percent,
+      innerEnabled: promotion.tiers.inner.enabled, innerDiscount: promotion.tiers.inner.percent,
+      masterEnabled: promotion.tiers.master.enabled, masterDiscount: promotion.tiers.master.percent,
+      active: promotion.active,
+    } })
   }
 
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
@@ -104,7 +111,7 @@ async function main() {
       estimatedTo: dateOnly(order.estimatedTo), currentLocation: order.currentLocation,
       status: order.status, inventoryApplied: order.inventoryApplied,
       inventoryRestored: order.inventoryRestored, createdAt: new Date(order.createdAt),
-      items: { create: order.items.map((item) => ({ productId: item.productId, sku: item.sku, name: item.name, image: item.image, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total })) },
+      items: { create: order.items.map((item) => ({ productId: item.productId, sku: item.sku, reference: item.reference, name: item.name, image: item.image, quantity: item.quantity, unitPrice: item.unitPrice, total: item.total })) },
       timeline: { create: order.timeline.map((item) => ({ ...item, occurredAt: new Date(item.occurredAt) })) },
     } })
   }

@@ -2,7 +2,7 @@ import type { Product } from "@/lib/data"
 import type { ProductMaster } from "@/lib/product-master"
 import { apiRequest } from "@/services/api-client"
 
-export type ProductRecord = ProductMaster & Product & { categoryName: string; brandId: string; warehouseId: string | null; basePrice: number; images: string[] }
+export type ProductRecord = ProductMaster & Product & { categoryName: string; brandId: string; warehouseId: string | null; basePrice: number; basePriceTiers: Product["priceTiers"]; images: string[] }
 export type ProductFilters = { page?: number; limit?: number; search?: string; category?: string; brand?: string; minPrice?: number; maxPrice?: number; active?: boolean; admin?: boolean; sort?: "name" | "price-asc" | "price-desc" | "newest" | "stock" }
 
 export async function getProducts(filters: ProductFilters = {}) {

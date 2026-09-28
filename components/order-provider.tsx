@@ -40,7 +40,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }
 
   async function updateOrder(id: string, patch: OrderUpdate, detail = "") {
-    const result = await saveOrderUpdate(id, { ...patch, detail })
+    const result = await saveOrderUpdate(id, { ...patch, detail, notifyCustomer: true })
     setOrders((previous) => previous.map((order) => order.id === id ? result.data : order))
     return result.data
   }

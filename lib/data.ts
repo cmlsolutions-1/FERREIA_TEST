@@ -47,6 +47,7 @@ export type Product = {
   subcategory: string
   price: number
   oldPrice?: number
+  promotionActive?: boolean
   rating: number
   reviews: number
   stock: number
@@ -68,16 +69,19 @@ export type ProductPriceTiers = {
     label: "Unidad"
     quantity: 1
     unitPrice: number
+    oldUnitPrice?: number
   }
   inner: {
     label: "Caja inner"
     quantity: number
     unitPrice: number
+    oldUnitPrice?: number
   }
   master: {
     label: "Caja master"
     quantity: number
     unitPrice: number
+    oldUnitPrice?: number
   }
 }
 

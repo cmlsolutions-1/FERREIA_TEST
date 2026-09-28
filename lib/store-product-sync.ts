@@ -12,8 +12,9 @@ export function readProductMasterBySku() {
 
 export function applyMasterToStoreProduct(product: Product, master: ProductMaster | undefined, promotion: Promotion | null): Product {
   const basePrice = master?.price ?? product.price
-  const activePromotion = promotion && promotionStatus(promotion, basePrice) === "vigente" ? promotion : null
-  const price = activePromotion?.salePrice ?? basePrice
+  const baseTiers = master?.priceTiers ?? product.priceTiers
+  const activePromotion = promotion && promotionStatus(promotion, baseTiers) === "vigente" ? promotion : null
+  const price = activePromotion?.tiers.unit.salePrice ?? basePrice
   return {
     ...product,
     stock: master?.stock ?? product.stock,
@@ -21,9 +22,9 @@ export function applyMasterToStoreProduct(product: Product, master: ProductMaste
     oldPrice: activePromotion?.regularPrice,
     badge: activePromotion ? activePromotion.kind === "outlet" ? "Outlet" : "Oferta" : product.badge === "Oferta" || product.badge === "Outlet" ? undefined : product.badge,
     priceTiers: {
-      unit: { ...product.priceTiers.unit, unitPrice: price },
-      inner: master?.priceTiers.inner ?? product.priceTiers.inner,
-      master: master?.priceTiers.master ?? product.priceTiers.master,
+      unit: { ...baseTiers.unit, unitPrice: price, ...(activePromotion?.tiers.unit.enabled ? { oldUnitPrice: baseTiers.unit.unitPrice } : {}) },
+      inner: { ...baseTiers.inner, unitPrice: activePromotion?.tiers.inner.salePrice ?? baseTiers.inner.unitPrice, ...(activePromotion?.tiers.inner.enabled ? { oldUnitPrice: baseTiers.inner.unitPrice } : {}) },
+      master: { ...baseTiers.master, unitPrice: activePromotion?.tiers.master.salePrice ?? baseTiers.master.unitPrice, ...(activePromotion?.tiers.master.enabled ? { oldUnitPrice: baseTiers.master.unitPrice } : {}) },
     },
   }
 }

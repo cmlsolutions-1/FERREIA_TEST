@@ -5,6 +5,8 @@ import { orderRepository } from "@/server/modules/orders/order.repository"
 import { createOrderSchema, orderFiltersSchema, updateOrderSchema } from "@/server/modules/orders/order.schema"
 import { ApiError } from "@/server/shared/api-error"
 import { paginationMeta } from "@/server/shared/pagination"
+import { resolvePromotionPrices } from "@/server/modules/promotions/promotion-pricing"
+import { sendOrderCreatedEmail, sendOrderUpdatedEmail } from "@/server/modules/orders/order-mailer"
 
 type Order = NonNullable<Awaited<ReturnType<typeof orderRepository.find>>>
 const n = (value: { toNumber(): number } | number) => typeof value === "number" ? value : value.toNumber()
@@ -13,7 +15,7 @@ export function orderToDto(order: Order) {
   return {
     id: order.id, customerId: order.customerId, guest: order.guest, customerName: order.customerName,
     document: order.document, email: order.email, phone: order.phone, createdAt: order.createdAt.toISOString(),
-    items: order.items.map((item) => ({ productId: item.productId, sku: item.sku, name: item.name, image: item.image, quantity: item.quantity, unitPrice: n(item.unitPrice), total: n(item.total) })),
+    items: order.items.map((item) => ({ productId: item.productId, sku: item.sku, reference: item.reference || item.sku, name: item.name, image: item.image, quantity: item.quantity, unitPrice: n(item.unitPrice), total: n(item.total) })),
     subtotal: n(order.subtotal), tax: n(order.tax), shippingCost: n(order.shippingCost), total: n(order.total),
     paymentMethod: order.paymentMethod, paymentStatus: order.paymentStatus, shippingMethod: order.shippingMethod,
     address: order.address, city: order.city, department: order.department, carrier: order.carrier,
@@ -42,13 +44,14 @@ export const orderService = {
         if (!product) throw new ApiError(404, "PRODUCT_NOT_FOUND", `Producto no disponible: ${item.productId}`)
         const result = await tx.product.updateMany({ where: { id: product.id, stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } })
         if (!result.count) throw new ApiError(409, "INSUFFICIENT_STOCK", `No hay existencias suficientes de ${product.name}`)
-        const promo = product.promotion
-        const promoActive = promo?.active && n(promo.basePrice) === n(product.price) && (!promo.startsAt || promo.startsAt <= new Date()) && (!promo.endsAt || promo.endsAt >= new Date())
-        const basePrice = promoActive ? n(promo.salePrice) : n(product.price)
+        const tierPrices = Object.fromEntries(product.priceTiers.map((entry) => [entry.kind, n(entry.unitPrice)]))
+        const basePrices = { unit: n(product.price), inner: tierPrices.inner ?? n(product.price), master: tierPrices.master ?? n(product.price) }
+        const promotionPricing = resolvePromotionPrices(product.promotion, basePrices)
         const tier = [...product.priceTiers].filter((t) => item.quantity >= t.quantity).sort((a, b) => b.quantity - a.quantity)[0]
-        const unitPrice = tier && tier.kind !== "unit" ? n(tier.unitPrice) : basePrice
+        const tierKind = tier?.kind === "inner" || tier?.kind === "master" ? tier.kind : "unit"
+        const unitPrice = promotionPricing.active ? promotionPricing.prices[tierKind] : basePrices[tierKind]
         tax += Math.round(unitPrice * item.quantity * n(product.taxRate) / 100)
-        lines.push({ productId: product.id, sku: product.sku, name: product.name, image: product.images[0]?.url ?? "/placeholder.svg", quantity: item.quantity, unitPrice, total: unitPrice * item.quantity })
+        lines.push({ productId: product.id, sku: product.sku, reference: product.reference, name: product.name, image: product.images[0]?.url ?? "/placeholder.svg", quantity: item.quantity, unitPrice, total: unitPrice * item.quantity })
         await tx.inventoryMovement.create({ data: { productId: product.id, quantity: -item.quantity, kind: "SALE", referenceId: id, warehouseName: "" } })
       }
       const subtotal = lines.reduce((sum, line) => sum + line.total, 0)
@@ -63,7 +66,9 @@ export const orderService = {
       const eta = (days: number) => new Date(now.getTime() + days * 86400000)
       await tx.order.create({ data: { id, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en FERREIA", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "FERREIA recibió la compra y descontó las unidades del inventario.", location: "FERREIA · Bogotá", occurredAt: now }] } } })
     })
-    return this.get(id)
+    const order = await this.get(id)
+    const notification = await sendOrderCreatedEmail(order)
+    return { ...order, notification }
   },
   async update(id: string, input: z.infer<typeof updateOrderSchema>) {
     const existing = await orderRepository.find(id)
@@ -74,6 +79,9 @@ export const orderService = {
       if (cancel) for (const item of existing.items) if (item.productId) { await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } }); await tx.inventoryMovement.create({ data: { productId: item.productId, quantity: item.quantity, kind: "CANCELLATION", referenceId: id, warehouseName: "" } }) }
       await tx.order.update({ where: { id }, data: { status: input.status, paymentStatus: cancel && existing.paymentStatus === "Pagado" ? "Reembolsado" : input.paymentStatus, carrier: input.carrier, trackingNumber: input.trackingNumber, currentLocation: input.currentLocation, estimatedFrom: input.estimatedFrom ? new Date(input.estimatedFrom) : undefined, estimatedTo: input.estimatedTo ? new Date(input.estimatedTo) : undefined, inventoryRestored: cancel ? true : existing.inventoryRestored, ...(timelineChanged ? { timeline: { create: { id: crypto.randomUUID(), status: input.status ?? existing.status, title: input.status ?? existing.status, detail: input.detail || `El pedido cambió al estado ${(input.status ?? existing.status).toLowerCase()}.`, location: input.currentLocation ?? existing.currentLocation, occurredAt: new Date() } } } : {}) } })
     })
-    return this.get(id)
+    const order = await this.get(id)
+    if (input.notifyCustomer === false) return order
+    const notification = await sendOrderUpdatedEmail(order, input.detail ?? "")
+    return { ...order, notification }
   },
 }

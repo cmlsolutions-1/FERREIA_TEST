@@ -157,6 +157,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
                     {tier.quantity === 1 ? "Compra individual" : `${tier.quantity} unidades`}
                   </p>
                   <p className="mt-2 font-bold text-primary">{formatCOP(tier.unitPrice)} / und</p>
+                  {tier.oldUnitPrice && tier.oldUnitPrice > tier.unitPrice && <p className="text-xs text-muted-foreground"><span className="line-through">{formatCOP(tier.oldUnitPrice)}</span> · −{Math.round((1 - tier.unitPrice / tier.oldUnitPrice) * 100)}%</p>}
                 </div>
               ))}
             </div>

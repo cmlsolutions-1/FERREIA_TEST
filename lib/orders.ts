@@ -33,6 +33,7 @@ export type ShippingMethod = "Estándar" | "Express"
 export type OrderItem = {
   productId: string
   sku: string
+  reference: string
   name: string
   image: string
   quantity: number
@@ -78,6 +79,7 @@ export type FerreiaOrder = {
   timeline: OrderTimelineEvent[]
   inventoryApplied: boolean
   inventoryRestored: boolean
+  notification?: { sent: boolean; message: string }
 }
 
 export type CreateOrderInput = Omit<
@@ -109,6 +111,7 @@ function seedItem(productIndex: number, quantity: number): OrderItem {
   return {
     productId: product.id,
     sku: product.sku,
+    reference: product.sku,
     name: product.name,
     image: product.image,
     quantity,

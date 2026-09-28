@@ -16,4 +16,5 @@ export const updateOrderSchema = z.object({
   carrier: z.string().max(100).optional(), trackingNumber: z.string().max(100).optional(),
   currentLocation: z.string().max(200).optional(), detail: z.string().max(500).optional(),
   estimatedFrom: z.iso.date().optional(), estimatedTo: z.iso.date().optional(),
+  notifyCustomer: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Envía al menos un campo")

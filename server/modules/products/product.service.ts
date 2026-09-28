@@ -4,6 +4,7 @@ import { productRepository } from "@/server/modules/products/product.repository"
 import { createProductSchema, productFiltersSchema, updateProductSchema } from "@/server/modules/products/product.schema"
 import { ApiError } from "@/server/shared/api-error"
 import { paginationMeta } from "@/server/shared/pagination"
+import { resolvePromotionPrices } from "@/server/modules/promotions/promotion-pricing"
 
 type Filters = z.infer<typeof productFiltersSchema>
 type Create = z.infer<typeof createProductSchema>
@@ -13,15 +14,21 @@ const number = (value: { toNumber(): number } | number) => typeof value === "num
 
 export function productToDto(product: Record) {
   const promotion = product.promotion
-  const today = new Date()
-  const validPromotion = promotion && promotion.active && number(promotion.basePrice) === number(product.price) && number(promotion.salePrice) > 0 && number(promotion.salePrice) < number(promotion.regularPrice) && (!promotion.startsAt || promotion.startsAt <= today) && (!promotion.endsAt || promotion.endsAt >= today)
-  const price = validPromotion ? number(promotion.salePrice) : number(product.price)
   const storedTiers = Object.fromEntries(product.priceTiers.map((tier) => [tier.kind, { label: tier.label, quantity: tier.quantity, unitPrice: number(tier.unitPrice) }]))
-  const tiers = {
-    unit: storedTiers.unit ? { ...storedTiers.unit, quantity: 1, unitPrice: price } : { label: "Unidad", quantity: 1, unitPrice: price },
-    inner: storedTiers.inner ?? { label: "Caja inner", quantity: product.packagingInner, unitPrice: price },
-    master: storedTiers.master ?? { label: "Caja master", quantity: product.packagingMaster, unitPrice: price },
+  const basePrice = number(product.price)
+  const baseTiers = {
+    unit: storedTiers.unit ? { ...storedTiers.unit, quantity: 1, unitPrice: basePrice } : { label: "Unidad", quantity: 1, unitPrice: basePrice },
+    inner: storedTiers.inner ?? { label: "Caja inner", quantity: product.packagingInner, unitPrice: basePrice },
+    master: storedTiers.master ?? { label: "Caja master", quantity: product.packagingMaster, unitPrice: basePrice },
   }
+  const promotionPricing = resolvePromotionPrices(product.promotion, { unit: baseTiers.unit.unitPrice, inner: baseTiers.inner.unitPrice, master: baseTiers.master.unitPrice })
+  const validPromotion = promotionPricing.active
+  const tiers = {
+    unit: { ...baseTiers.unit, unitPrice: validPromotion ? promotionPricing.prices.unit : baseTiers.unit.unitPrice, ...(validPromotion && promotionPricing.enabled.unit ? { oldUnitPrice: baseTiers.unit.unitPrice } : {}) },
+    inner: { ...baseTiers.inner, unitPrice: validPromotion ? promotionPricing.prices.inner : baseTiers.inner.unitPrice, ...(validPromotion && promotionPricing.enabled.inner ? { oldUnitPrice: baseTiers.inner.unitPrice } : {}) },
+    master: { ...baseTiers.master, unitPrice: validPromotion ? promotionPricing.prices.master : baseTiers.master.unitPrice, ...(validPromotion && promotionPricing.enabled.master ? { oldUnitPrice: baseTiers.master.unitPrice } : {}) },
+  }
+  const price = tiers.unit.unitPrice
   return {
     id: product.id, reference: product.reference, supplierReference: product.supplierReference,
     sku: product.sku, name: product.name, description: product.description, characteristics: product.characteristics,
@@ -29,17 +36,17 @@ export function productToDto(product: Record) {
     line: product.line, group: product.group, subgroup: product.subgroup, brand: product.brand.name,
     brandId: product.brandId, warehouse: product.warehouse?.name ?? "", warehouseId: product.warehouseId,
     unit: product.unit, weight: number(product.weight), cost: number(product.cost), basePrice: number(product.price),
-    price, oldPrice: validPromotion ? number(promotion.regularPrice) : undefined, taxRate: number(product.taxRate),
+    price, oldPrice: validPromotion && promotionPricing.enabled.unit ? baseTiers.unit.unitPrice : undefined, promotionActive: validPromotion, taxRate: number(product.taxRate),
     stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax,
     packaging: { inner: tiers.inner.quantity, master: tiers.master.quantity },
     markupPercent: product.markupPercent ? number(product.markupPercent) : undefined,
     active: product.active, rating: product.rating, reviews: product.reviews,
-    badge: validPromotion ? promotion.kind === "outlet" ? "Outlet" : "Oferta" : product.badge,
+    badge: validPromotion ? promotion?.kind === "outlet" ? "Outlet" : "Oferta" : promotion && (product.badge === "Oferta" || product.badge === "Outlet") ? undefined : product.badge,
     power: product.power ?? undefined, size: product.size ?? undefined, material: product.material ?? undefined,
     image: product.images[0]?.url ?? "/placeholder.svg", images: product.images.map((image) => image.url),
     barcodes: product.barcodes.map((barcode) => ({ presentation: barcode.presentation, code: barcode.code })),
     barcode: product.barcodes.find((barcode) => barcode.presentation === "Unidad")?.code ?? product.barcodes[0]?.code ?? "",
-    priceTiers: tiers, specs: product.specs.map(({ label, value }) => ({ label, value })),
+    priceTiers: tiers, basePriceTiers: baseTiers, specs: product.specs.map(({ label, value }) => ({ label, value })),
     compatibilities: product.compatibilities.map((item) => item.value),
     suppliers: product.suppliers.map((item) => item.supplier.name),
     costReview: product.costReview ? { previousCost: number(product.costReview.previousCost), newCost: number(product.costReview.newCost), purchaseOrderId: product.costReview.purchaseOrderId, invoiceNumber: product.costReview.invoiceNumber, changedAt: product.costReview.changedAt.toISOString(), pending: product.costReview.pending } : undefined,
@@ -48,8 +55,8 @@ export function productToDto(product: Record) {
 }
 
 export function publicProduct(dto: ReturnType<typeof productToDto>) {
-  const { cost, markupPercent, costReview, supplierReference, suppliers, warehouse, warehouseId, stockMin, stockMax, weight, ...publicFields } = dto
-  void cost; void markupPercent; void costReview; void supplierReference; void suppliers; void warehouse; void warehouseId; void stockMin; void stockMax; void weight
+  const { cost, markupPercent, costReview, supplierReference, suppliers, warehouse, warehouseId, stockMin, stockMax, weight, basePriceTiers, ...publicFields } = dto
+  void cost; void markupPercent; void costReview; void supplierReference; void suppliers; void warehouse; void warehouseId; void stockMin; void stockMax; void weight; void basePriceTiers
   return publicFields
 }
 

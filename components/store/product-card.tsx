@@ -97,6 +97,7 @@ export function ProductCard({ product: initialProduct }: { product: Product }) {
         </div>
         <p className="mt-0.5 text-xs font-medium text-accent">
           Master x{product.priceTiers.master.quantity}: {formatCOP(product.priceTiers.master.unitPrice)} / und
+          {product.priceTiers.master.oldUnitPrice && product.priceTiers.master.oldUnitPrice > product.priceTiers.master.unitPrice ? ` (antes ${formatCOP(product.priceTiers.master.oldUnitPrice)})` : ""}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {stock > 0 ? (
