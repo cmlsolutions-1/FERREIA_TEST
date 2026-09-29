@@ -13,6 +13,7 @@ export const productFiltersSchema = paginationSchema.extend({
   maxPrice: z.coerce.number().nonnegative().optional(), active: z.enum(["true", "false"]).optional(),
   featured: z.enum(["true", "false"]).optional(), sort: z.enum(["name", "price-asc", "price-desc", "newest", "stock"]).default("name"),
   admin: z.enum(["true"]).optional(),
+  productType: z.enum(["TOOL", "MATERIAL", "CONSUMABLE", "FINISHED_PRODUCT"]).optional(),
 }).refine((value) => value.minPrice === undefined || value.maxPrice === undefined || value.minPrice <= value.maxPrice, "El precio mínimo no puede superar al máximo")
 
 export const createProductSchema = z.object({
@@ -21,6 +22,9 @@ export const createProductSchema = z.object({
   name: z.string().trim().min(2).max(250), description: z.string().default(""), characteristics: z.string().default(""),
   categoryId: z.string().trim().min(1), subcategory: z.string().default(""),
   line: z.string().default(""), group: z.string().default(""), subgroup: z.string().default(""),
+  productType: z.enum(["TOOL", "MATERIAL", "CONSUMABLE", "FINISHED_PRODUCT"], {
+    message: "Selecciona si el producto es herramienta, material, consumible o producto terminado",
+  }),
   brandId: z.string().trim().min(1), warehouseId: z.string().nullable().optional(),
   unit: z.string().default("Unidad"), weight: z.number().nonnegative().default(0),
   cost: money.default(0), price: money.positive(), taxRate: z.number().min(0).max(100).default(19),

@@ -4,7 +4,7 @@ import { apiRequest, type ApiFailure, type ApiResponse } from "@/services/api-cl
 import { PRODUCT_IMAGE_UPLOAD_ENDPOINT } from "@/lib/upload-paths"
 
 export type ProductRecord = ProductMaster & Product & { categoryName: string; brandId: string; warehouseId: string | null; basePrice: number; basePriceTiers: Product["priceTiers"]; images: string[] }
-export type ProductFilters = { page?: number; limit?: number; search?: string; category?: string; brand?: string; minPrice?: number; maxPrice?: number; active?: boolean; admin?: boolean; sort?: "name" | "price-asc" | "price-desc" | "newest" | "stock" }
+export type ProductFilters = { page?: number; limit?: number; search?: string; category?: string; brand?: string; productType?: ProductRecord["productType"]; minPrice?: number; maxPrice?: number; active?: boolean; admin?: boolean; sort?: "name" | "price-asc" | "price-desc" | "newest" | "stock" }
 
 export async function getProducts(filters: ProductFilters = {}) {
   const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)]))

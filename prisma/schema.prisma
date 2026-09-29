@@ -45,6 +45,13 @@ enum ClassificationKind {
   SUBGROUP
 }
 
+enum ProductType {
+  TOOL
+  MATERIAL
+  CONSUMABLE
+  FINISHED_PRODUCT
+}
+
 model Brand {
   id        String    @id
   name      String    @unique
@@ -56,19 +63,19 @@ model Brand {
 }
 
 model Supplier {
-  id             String            @id
-  name           String
-  nit            String            @unique
-  contact        String            @default("")
-  city           String            @default("")
-  category       String            @default("")
-  commercialTerms String           @default("")
-  active         Boolean           @default(true)
-  balance        Decimal           @default(0) @db.Decimal(14, 2)
-  products       ProductSupplier[]
-  purchaseOrders PurchaseOrder[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id              String            @id
+  name            String
+  nit             String            @unique
+  contact         String            @default("")
+  city            String            @default("")
+  category        String            @default("")
+  commercialTerms String            @default("")
+  active          Boolean           @default(true)
+  balance         Decimal           @default(0) @db.Decimal(14, 2)
+  products        ProductSupplier[]
+  purchaseOrders  PurchaseOrder[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([active, name])
   @@index([city])
@@ -88,37 +95,38 @@ model Warehouse {
 }
 
 model Product {
-  id                String              @id
-  reference         String              @unique
-  supplierReference String              @default("")
-  sku               String              @unique
+  id                String                 @id
+  reference         String                 @unique
+  supplierReference String                 @default("")
+  sku               String                 @unique
   name              String
-  description       String              @default("")
-  characteristics   String              @default("")
+  description       String                 @default("")
+  characteristics   String                 @default("")
   categoryId        String
-  category          Category            @relation(fields: [categoryId], references: [id])
-  subcategory       String              @default("")
-  line              String              @default("")
-  group             String              @default("")
-  subgroup          String              @default("")
+  category          Category               @relation(fields: [categoryId], references: [id])
+  subcategory       String                 @default("")
+  line              String                 @default("")
+  group             String                 @default("")
+  subgroup          String                 @default("")
+  productType       ProductType            @default(MATERIAL)
   brandId           String
-  brand             Brand               @relation(fields: [brandId], references: [id])
-  unit              String              @default("Unidad")
-  weight            Decimal             @default(0) @db.Decimal(10, 3)
-  cost              Decimal             @default(0) @db.Decimal(14, 2)
-  price             Decimal             @db.Decimal(14, 2)
-  taxRate           Decimal             @default(19) @db.Decimal(5, 2)
-  stock             Int                 @default(0)
-  stockMin          Int                 @default(0)
-  stockMax          Int                 @default(0)
+  brand             Brand                  @relation(fields: [brandId], references: [id])
+  unit              String                 @default("Unidad")
+  weight            Decimal                @default(0) @db.Decimal(10, 3)
+  cost              Decimal                @default(0) @db.Decimal(14, 2)
+  price             Decimal                @db.Decimal(14, 2)
+  taxRate           Decimal                @default(19) @db.Decimal(5, 2)
+  stock             Int                    @default(0)
+  stockMin          Int                    @default(0)
+  stockMax          Int                    @default(0)
   warehouseId       String?
-  warehouse         Warehouse?          @relation(fields: [warehouseId], references: [id])
-  packagingInner    Int                 @default(1)
-  packagingMaster   Int                 @default(1)
-  markupPercent     Decimal?            @db.Decimal(8, 2)
-  active            Boolean             @default(true)
-  rating            Float               @default(0)
-  reviews           Int                 @default(0)
+  warehouse         Warehouse?             @relation(fields: [warehouseId], references: [id])
+  packagingInner    Int                    @default(1)
+  packagingMaster   Int                    @default(1)
+  markupPercent     Decimal?               @db.Decimal(8, 2)
+  active            Boolean                @default(true)
+  rating            Float                  @default(0)
+  reviews           Int                    @default(0)
   badge             String?
   power             String?
   size              String?
@@ -135,10 +143,11 @@ model Product {
   purchaseLines     PurchaseOrderLine[]
   invoiceLines      InvoiceLine[]
   movements         InventoryMovement[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@index([categoryId, active])
+  @@index([productType, active])
   @@index([brandId, active])
   @@index([warehouseId])
   @@index([price])
@@ -215,43 +224,43 @@ model ProductCostReview {
 }
 
 model Promotion {
-  id           String   @id @default(cuid())
-  productId    String   @unique
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  kind         String
-  regularPrice Decimal  @db.Decimal(14, 2)
-  salePrice    Decimal  @db.Decimal(14, 2)
-  basePrice    Decimal  @db.Decimal(14, 2)
-  baseInnerPrice  Decimal @default(0) @db.Decimal(14, 2)
-  baseMasterPrice Decimal @default(0) @db.Decimal(14, 2)
-  unitEnabled    Boolean @default(true)
-  unitDiscount   Decimal @default(0) @db.Decimal(5, 2)
-  innerEnabled   Boolean @default(false)
-  innerDiscount  Decimal @default(0) @db.Decimal(5, 2)
-  masterEnabled  Boolean @default(false)
-  masterDiscount Decimal @default(0) @db.Decimal(5, 2)
-  startsAt     DateTime?
-  endsAt       DateTime?
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String    @id @default(cuid())
+  productId       String    @unique
+  product         Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  kind            String
+  regularPrice    Decimal   @db.Decimal(14, 2)
+  salePrice       Decimal   @db.Decimal(14, 2)
+  basePrice       Decimal   @db.Decimal(14, 2)
+  baseInnerPrice  Decimal   @default(0) @db.Decimal(14, 2)
+  baseMasterPrice Decimal   @default(0) @db.Decimal(14, 2)
+  unitEnabled     Boolean   @default(true)
+  unitDiscount    Decimal   @default(0) @db.Decimal(5, 2)
+  innerEnabled    Boolean   @default(false)
+  innerDiscount   Decimal   @default(0) @db.Decimal(5, 2)
+  masterEnabled   Boolean   @default(false)
+  masterDiscount  Decimal   @default(0) @db.Decimal(5, 2)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([active, startsAt, endsAt])
 }
 
 model Customer {
-  id           String    @id
+  id           String        @id
   name         String
-  document     String    @unique
-  email        String    @unique
+  document     String        @unique
+  email        String        @unique
   phone        String
   passwordHash String?
-  role         String    @default("CUSTOMER")
-  active       Boolean   @default(true)
+  role         String        @default("CUSTOMER")
+  active       Boolean       @default(true)
   orders       Order[]
   sessions     AuthSession[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
 model CrmCustomer {
@@ -281,37 +290,37 @@ model AuthSession {
 }
 
 model Order {
-  id                String           @id
+  id                String       @id
   customerId        String?
-  customer          Customer?        @relation(fields: [customerId], references: [id])
+  customer          Customer?    @relation(fields: [customerId], references: [id])
   guest             Boolean
   customerName      String
   document          String
   email             String
   phone             String
-  subtotal          Decimal          @db.Decimal(14, 2)
-  tax               Decimal          @db.Decimal(14, 2)
-  shippingCost      Decimal          @db.Decimal(14, 2)
-  total             Decimal          @db.Decimal(14, 2)
+  subtotal          Decimal      @db.Decimal(14, 2)
+  tax               Decimal      @db.Decimal(14, 2)
+  shippingCost      Decimal      @db.Decimal(14, 2)
+  total             Decimal      @db.Decimal(14, 2)
   paymentMethod     String
   paymentStatus     String
   shippingMethod    String
   address           String
   city              String
   department        String
-  carrier           String           @default("Por asignar")
-  trackingNumber    String           @default("")
+  carrier           String       @default("Por asignar")
+  trackingNumber    String       @default("")
   estimatedFrom     DateTime?
   estimatedTo       DateTime?
-  currentLocation   String           @default("")
+  currentLocation   String       @default("")
   status            String
-  inventoryApplied  Boolean          @default(false)
-  inventoryRestored Boolean          @default(false)
+  inventoryApplied  Boolean      @default(false)
+  inventoryRestored Boolean      @default(false)
   items             OrderItem[]
   timeline          OrderEvent[]
   payments          Payment[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@index([customerId, createdAt])
   @@index([email, createdAt])
@@ -319,18 +328,18 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String?
   product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   sku       String
-  reference String  @default("")
+  reference String   @default("")
   name      String
   image     String
   quantity  Int
-  unitPrice Decimal @db.Decimal(14, 2)
-  total     Decimal @db.Decimal(14, 2)
+  unitPrice Decimal  @db.Decimal(14, 2)
+  total     Decimal  @db.Decimal(14, 2)
 
   @@index([orderId])
   @@index([productId])
@@ -350,29 +359,29 @@ model OrderEvent {
 }
 
 model PurchaseOrder {
-  id         String              @id
-  supplierId String?
-  supplier   Supplier?           @relation(fields: [supplierId], references: [id])
+  id           String              @id
+  supplierId   String?
+  supplier     Supplier?           @relation(fields: [supplierId], references: [id])
   supplierName String
-  date       DateTime
-  status     String
-  quotedTotal Decimal            @default(0) @db.Decimal(14, 2)
-  lines      PurchaseOrderLine[]
-  invoice    PurchaseInvoice?
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  date         DateTime
+  status       String
+  quotedTotal  Decimal             @default(0) @db.Decimal(14, 2)
+  lines        PurchaseOrderLine[]
+  invoice      PurchaseInvoice?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 }
 
 model PurchaseOrderLine {
-  id             String        @id @default(cuid())
+  id              String        @id @default(cuid())
   purchaseOrderId String
-  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  productId      String?
-  product        Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
-  sku            String
-  name           String
-  orderedQty     Int
-  quotedUnitCost Decimal       @db.Decimal(14, 2)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sku             String
+  name            String
+  orderedQty      Int
+  quotedUnitCost  Decimal       @db.Decimal(14, 2)
 }
 
 model PurchaseInvoice {
@@ -387,17 +396,17 @@ model PurchaseInvoice {
 }
 
 model InvoiceLine {
-  id                String          @id @default(cuid())
-  invoiceId         String
-  invoice           PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  productId         String?
-  product           Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  receivedQty       Int
-  invoiceUnitCost   Decimal         @db.Decimal(14, 2)
-  freightShare      Decimal         @db.Decimal(14, 2)
-  landedUnitCost    Decimal         @db.Decimal(14, 2)
-  updateSalePrice   Boolean
-  salePrice         Decimal         @db.Decimal(14, 2)
+  id              String          @id @default(cuid())
+  invoiceId       String
+  invoice         PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  receivedQty     Int
+  invoiceUnitCost Decimal         @db.Decimal(14, 2)
+  freightShare    Decimal         @db.Decimal(14, 2)
+  landedUnitCost  Decimal         @db.Decimal(14, 2)
+  updateSalePrice Boolean
+  salePrice       Decimal         @db.Decimal(14, 2)
 }
 
 model InventoryMovement {
@@ -415,17 +424,17 @@ model InventoryMovement {
 }
 
 model ShippingConfiguration {
-  id                 String           @id @default("default")
-  enabled            Boolean          @default(true)
-  freeEnabled        Boolean          @default(true)
-  freeByAmount       Boolean          @default(true)
-  minimumAmount      Decimal          @db.Decimal(14, 2)
-  freeByQuantity     Boolean          @default(true)
-  minimumQuantity    Int
-  freeMode           String
-  methods            ShippingMethod[]
-  zones              ShippingZone[]
-  updatedAt          DateTime         @updatedAt
+  id              String           @id @default("default")
+  enabled         Boolean          @default(true)
+  freeEnabled     Boolean          @default(true)
+  freeByAmount    Boolean          @default(true)
+  minimumAmount   Decimal          @db.Decimal(14, 2)
+  freeByQuantity  Boolean          @default(true)
+  minimumQuantity Int
+  freeMode        String
+  methods         ShippingMethod[]
+  zones           ShippingZone[]
+  updatedAt       DateTime         @updatedAt
 }
 
 model ShippingMethod {
@@ -478,7 +487,7 @@ model Payment {
   webhookValid        Boolean
   createdAt           DateTime
   approvedAt          DateTime?
-  updatedAt           DateTime @updatedAt
+  updatedAt           DateTime  @updatedAt
 
   @@index([orderId])
   @@index([status, createdAt])

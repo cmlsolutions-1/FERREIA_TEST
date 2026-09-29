@@ -34,6 +34,7 @@ export function productToDto(product: Record) {
     sku: product.sku, name: product.name, description: product.description, characteristics: product.characteristics,
     category: product.category.slug, categoryName: product.category.name, subcategory: product.subcategory,
     line: product.line, group: product.group, subgroup: product.subgroup, brand: product.brand.name,
+    productType: product.productType,
     brandId: product.brandId, warehouse: product.warehouse?.name ?? "", warehouseId: product.warehouseId,
     unit: product.unit, weight: number(product.weight), cost: number(product.cost), basePrice: number(product.price),
     price, oldPrice: validPromotion && promotionPricing.enabled.unit ? baseTiers.unit.unitPrice : undefined, promotionActive: validPromotion, taxRate: number(product.taxRate),
@@ -88,6 +89,7 @@ export const productService = {
       ...(filters.active ? { active: filters.active === "true" } : {}),
       ...(filters.category ? { category: { slug: filters.category } } : {}),
       ...(filters.brand ? { brand: { name: { equals: filters.brand, mode: "insensitive" } } } : {}),
+      ...(filters.productType ? { productType: filters.productType } : {}),
       ...(filters.minPrice !== undefined || filters.maxPrice !== undefined ? { price: { gte: filters.minPrice, lte: filters.maxPrice } } : {}),
       ...(filters.featured ? { badge: filters.featured === "true" ? { not: null } : null } : {}),
       ...(filters.search ? { OR: [

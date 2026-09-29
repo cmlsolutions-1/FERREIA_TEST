@@ -9,98 +9,164 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { formatCOP, type Product } from "@/lib/data"
-import { getAllProducts } from "@/services/products.service"
-import { Bot, Send, Sparkles, User } from "lucide-react"
+import { formatCOP } from "@/lib/data"
+import { requestProjectAdvice } from "@/services/ai.service"
+import type { AdvisorHistoryMessage, AdvisorImage, CatalogProduct, VisionResult } from "@/server/modules/ai/ai.schema"
+import { Bot, ImagePlus, LoaderCircle, Send, Sparkles, User, X } from "lucide-react"
 
 type ChatMessage = {
   id: string
   role: "user" | "assistant"
   text: string
-  productIds?: string[]
+  products?: CatalogProduct[]
+  image?: string
+  imageName?: string
+  vision?: VisionResult
+}
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_IMAGE_SIDE = 768
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+
+const VISION_LABELS: Record<VisionResult["imageType"], string> = {
+  furniture_project: "Proyecto o mueble",
+  tool_or_product: "Herramienta o producto",
+  other: "Imagen no relacionada",
+  uncertain: "Objeto no identificado",
+}
+
+const VISION_PRESENTATION_LABELS: Record<VisionResult["imagePresentation"], string> = {
+  photo: "Foto analizada",
+  product_render: "Imagen de producto",
+  technical_drawing: "Dibujo técnico",
+  logo_or_text: "Logotipo o texto",
+  interface_screenshot: "Captura de pantalla",
+  uncertain: "Formato no identificado",
+}
+
+function visionLabel(vision: VisionResult) {
+  if (["logo_or_text", "interface_screenshot", "uncertain"].includes(vision.imagePresentation)) {
+    return VISION_PRESENTATION_LABELS[vision.imagePresentation]
+  }
+  return VISION_LABELS[vision.imageType]
+}
+
+async function prepareImage(file: File): Promise<AdvisorImage> {
+  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error("La foto debe estar en formato JPG, PNG o WEBP.")
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error("La foto no puede superar los 10 MB.")
+  }
+
+  const bitmap = await createImageBitmap(file)
+  try {
+    if (bitmap.width < 32 || bitmap.height < 32) {
+      throw new Error("La foto es demasiado pequeña para poder analizarla.")
+    }
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("El navegador no pudo preparar la foto.")
+    context.fillStyle = "#ffffff"
+    context.fillRect(0, 0, width, height)
+    context.drawImage(bitmap, 0, 0, width, height)
+    return { name: file.name, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }
+  } finally {
+    bitmap.close()
+  }
 }
 
 const SUGGESTIONS = [
-  "¿Qué necesito para colgar un televisor en pared de drywall?",
-  "Recomiéndame herramienta para pintar una habitación",
-  "¿Qué taladro me sirve para concreto?",
-  "Necesito asegurar una puerta, ¿qué cerradura compro?",
+  "Quiero construir una mesa de centro",
+  "Quiero construir un mueble para televisor",
+  "Quiero comprar un taladro para concreto",
+  "Quiero fabricar un televisor",
 ]
 
 const INITIAL: ChatMessage[] = [
   {
     id: "m0",
     role: "assistant",
-    text: "¡Hola! Soy FerreBot, tu asistente ferretero. Cuéntame qué proyecto tienes en mente o qué problema quieres resolver y te recomiendo los productos y materiales que necesitas.",
+    text: "¡Hola! Soy FerreBot, el asistente local de FERREIA. Cuéntame qué quieres construir, qué producto necesitas o adjunta una foto. Consultaré el inventario real antes de recomendarte algo.",
   },
 ]
 
-function buildAssistantReply(input: string, products: Product[]): ChatMessage {
-  const text = input.toLowerCase()
-  let reply =
-    "Con gusto te ayudo. Para tu proyecto te recomiendo revisar estos productos de nuestro catálogo, son los más adecuados y tienen buena rotación entre nuestros clientes:"
-  let picks: Product[] = []
-
-  if (text.includes("televisor") || text.includes("drywall") || text.includes("colgar") || text.includes("pared")) {
-    reply =
-      "Para colgar un televisor en pared de drywall necesitas un soporte con anclajes tipo mariposa, un taladro para hacer las perforaciones y un nivel para que quede derecho. Aquí tienes lo esencial:"
-    picks = products.filter((p) =>
-      ["herramientas-electricas", "tornilleria", "herramientas-manuales"].includes(p.category),
-    ).slice(0, 3)
-  } else if (text.includes("pintar") || text.includes("pintura") || text.includes("habitaci")) {
-    reply =
-      "Para pintar una habitación te recomiendo rodillos de buena calidad, cinta de enmascarar para proteger bordes y la pintura adecuada según el acabado que busques. Mira estas opciones:"
-    picks = products.filter((p) => p.category === "pinturas-acabados").slice(0, 3)
-  } else if (text.includes("concreto") || text.includes("taladro") || text.includes("perfora")) {
-    reply =
-      "Para perforar concreto necesitas un taladro percutor (rotomartillo) con brocas de tungsteno. Estos modelos tienen la potencia adecuada:"
-    picks = products.filter((p) => p.subcategory === "Taladros" || p.category === "herramientas-electricas").slice(0, 3)
-  } else if (text.includes("puerta") || text.includes("cerradura") || text.includes("asegurar") || text.includes("seguridad")) {
-    reply =
-      "Para asegurar una puerta lo ideal es una cerradura de alta seguridad con cilindro antibumping. Te recomiendo estas opciones de seguridad:"
-    picks = products.filter((p) => p.category === "cerrajeria" || p.category === "seguridad-industrial").slice(0, 3)
-  } else {
-    picks = products.slice(0, 3)
-  }
-
-  return {
-    id: `a-${Date.now()}`,
-    role: "assistant",
-    text: reply,
-    productIds: picks.map((p) => p.id),
-  }
-}
-
 export default function AsistentePage() {
-  const [products, setProducts] = useState<Product[]>([])
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL)
   const [input, setInput] = useState("")
   const [typing, setTyping] = useState(false)
+  const [processingImage, setProcessingImage] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<AdvisorImage | null>(null)
+  const [imageError, setImageError] = useState("")
   const endRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    let active = true
-    getAllProducts({ active: true }).then((items) => { if (active) setProducts(items) }).catch(() => {})
-    return () => { active = false }
-  }, [])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages, typing])
 
-  function send(value: string) {
+  async function send(value: string) {
     const trimmed = value.trim()
-    if (!trimmed || typing) return
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text: trimmed }
+    const pendingImage = selectedImage
+    if ((!trimmed && !pendingImage) || typing) return
+    const messageText = trimmed || "Analiza esta imagen y dime qué producto o proyecto ves."
+    const history: AdvisorHistoryMessage[] = messages.slice(1).slice(-8).map((message) => ({
+      role: message.role,
+      content: message.text,
+    }))
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      text: messageText,
+      image: pendingImage?.dataUrl,
+      imageName: pendingImage?.name,
+    }
     setMessages((prev) => [...prev, userMsg])
     setInput("")
+    setSelectedImage(null)
+    setImageError("")
     setTyping(true)
-    setTimeout(() => {
-      setMessages((prev) => [...prev, buildAssistantReply(trimmed, products)])
+    setProcessingImage(Boolean(pendingImage))
+    try {
+      const response = await requestProjectAdvice(messageText, history, pendingImage ?? undefined)
+      setMessages((prev) => [...prev, {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: response.data.assistantMessage,
+        products: response.data.catalog.products,
+        vision: response.data.vision,
+      }])
+    } catch (error) {
+      setMessages((prev) => [...prev, {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: error instanceof Error ? error.message : "No fue posible consultar FerreBot en este momento.",
+      }])
+    } finally {
       setTyping(false)
-      setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50)
-    }, 900)
+      setProcessingImage(false)
+    }
+  }
+
+  async function handleImageSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    setImageError("")
+    try {
+      setSelectedImage(await prepareImage(file))
+    } catch (error) {
+      setSelectedImage(null)
+      setImageError(error instanceof Error ? error.message : "No fue posible preparar la foto.")
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    send(input)
+    void send(input)
   }
 
   return (
@@ -131,25 +197,40 @@ export default function AsistentePage() {
                     : "bg-card text-card-foreground shadow-sm"
                 }`}
               >
+                {m.image && (
+                  <Image
+                    src={m.image}
+                    alt={m.imageName ? `Foto adjunta: ${m.imageName}` : "Foto adjunta"}
+                    width={360}
+                    height={270}
+                    unoptimized
+                    className="mb-2 max-h-64 w-full rounded-xl bg-white object-contain"
+                  />
+                )}
                 {m.text}
               </div>
-              {m.productIds && m.productIds.length > 0 && (
+              {m.vision && (
+                <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] text-muted-foreground">
+                  <ImagePlus className="h-3.5 w-3.5 text-primary" />
+                  <span>{visionLabel(m.vision)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>confianza estimada {Math.round(m.vision.confidence * 100)}%</span>
+                </div>
+              )}
+              {m.products && m.products.length > 0 && (
                 <div className="grid gap-2 text-left sm:grid-cols-3">
-                  {m.productIds.map((pid) => {
-                    const p = products.find((x) => x.id === pid)
-                    if (!p) return null
-                    return (
-                      <Link key={pid} href={`/producto/${p.id}`}>
+                  {m.products.map((p) => (
+                      <Link key={p.id} href={`/producto/${p.id}`}>
                         <Card className="overflow-hidden p-2 transition-colors hover:border-accent">
                           <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-md bg-muted">
                             <Image src={p.image || "/placeholder.svg"} alt={p.name} fill className="object-cover" />
                           </div>
                           <p className="line-clamp-2 text-xs font-medium text-foreground">{p.name}</p>
                           <p className="mt-1 text-sm font-bold text-accent">{formatCOP(p.price)}</p>
+                          <p className="text-[11px] text-muted-foreground">{p.stock > 0 ? `${p.stock} disponibles` : "Sin existencias"}</p>
                         </Card>
                       </Link>
-                    )
-                  })}
+                  ))}
                 </div>
               )}
             </div>
@@ -163,10 +244,19 @@ export default function AsistentePage() {
                 <Bot className="h-4 w-4" />
               </AvatarFallback>
             </Avatar>
-            <div className="inline-flex items-center gap-1 rounded-2xl bg-card px-4 py-3 shadow-sm">
-              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
-              <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground" />
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+              {processingImage ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin text-primary" />
+                  <span>Analizando la imagen y consultando el inventario…</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground" />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -178,7 +268,7 @@ export default function AsistentePage() {
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
-              onClick={() => send(s)}
+              onClick={() => void send(s)}
               className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:border-accent hover:text-accent"
             >
               <Sparkles className="h-3 w-3 text-accent" />
@@ -188,20 +278,75 @@ export default function AsistentePage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Escribe tu pregunta o describe tu proyecto..."
-          className="h-12 flex-1"
-        />
-        <Button type="submit" size="icon" className="h-12 w-12 shrink-0" disabled={!input.trim() || typing}>
-          <Send className="h-5 w-5" />
-          <span className="sr-only">Enviar</span>
-        </Button>
+      <form onSubmit={handleSubmit} className="mt-4 space-y-2">
+        {selectedImage && (
+          <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-2">
+            <Image
+              src={selectedImage.dataUrl}
+              alt={`Vista previa de ${selectedImage.name}`}
+              width={64}
+              height={64}
+              unoptimized
+              className="h-16 w-16 rounded-lg bg-white object-contain"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-foreground">{selectedImage.name}</p>
+              <p className="text-xs text-muted-foreground">Foto preparada para el análisis local</p>
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="h-9 w-9 shrink-0"
+              onClick={() => setSelectedImage(null)}
+              disabled={typing}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Quitar foto</span>
+            </Button>
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-12 w-12 shrink-0"
+            onClick={() => fileRef.current?.click()}
+            disabled={typing}
+            title="Adjuntar una foto"
+          >
+            <ImagePlus className="h-5 w-5" />
+            <span className="sr-only">Adjuntar una foto</span>
+          </Button>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Describe tu proyecto o adjunta una foto..."
+            className="h-12 flex-1"
+            disabled={typing}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="h-12 w-12 shrink-0"
+            disabled={(!input.trim() && !selectedImage) || typing}
+          >
+            <Send className="h-5 w-5" />
+            <span className="sr-only">Enviar</span>
+          </Button>
+        </div>
+        {imageError && <p className="text-xs text-destructive" role="alert">{imageError}</p>}
       </form>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        FerreBot es una demostración. Las recomendaciones consultan los productos activos del catálogo actual.
+        FerreBot usa Qwen2.5-VL local y consulta los productos activos del inventario. Las fotos se reducen a 768 px y no se guardan. La primera respuesta puede tardar mientras carga el modelo.
       </p>
     </div>
   )

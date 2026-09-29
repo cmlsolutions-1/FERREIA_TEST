@@ -61,6 +61,7 @@ async function main() {
       sku: storefront.sku, name: storefront.name, description: storefront.description,
       characteristics: master.characteristics, categoryId: storefront.category,
       subcategory: storefront.subcategory, line: master.line, group: master.group, subgroup: master.subgroup,
+      productType: storefront.productType,
       brandId: brands.find((item) => item.name === storefront.brand)!.id,
       unit: master.unit, weight: master.weight, cost: master.cost, price: master.price,
       taxRate: master.taxRate, stock: master.stock, stockMin: master.stockMin, stockMax: master.stockMax,

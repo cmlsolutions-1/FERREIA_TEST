@@ -39,12 +39,22 @@ export const BRANDS = [
   "3M",
 ]
 
+export type ProductType = "TOOL" | "MATERIAL" | "CONSUMABLE" | "FINISHED_PRODUCT"
+
+export const PRODUCT_TYPE_LABELS: Record<ProductType, string> = {
+  TOOL: "Herramienta",
+  MATERIAL: "Material",
+  CONSUMABLE: "Consumible",
+  FINISHED_PRODUCT: "Producto terminado",
+}
+
 export type Product = {
   id: string
   name: string
   brand: string
   category: string
   subcategory: string
+  productType: ProductType
   price: number
   oldPrice?: number
   promotionActive?: boolean
@@ -104,6 +114,7 @@ export const PRODUCTS: Product[] = [
     brand: "Philips",
     category: "iluminacion",
     subcategory: "Bombillos LED",
+    productType: "CONSUMABLE",
     price: 12900,
     oldPrice: 18900,
     rating: 4.8,
@@ -135,6 +146,7 @@ export const PRODUCTS: Product[] = [
     brand: "DeWalt",
     category: "herramientas-electricas",
     subcategory: "Taladros",
+    productType: "TOOL",
     price: 459900,
     oldPrice: 529900,
     rating: 4.9,
@@ -166,6 +178,7 @@ export const PRODUCTS: Product[] = [
     brand: "Stanley",
     category: "herramientas-manuales",
     subcategory: "Destornilladores",
+    productType: "TOOL",
     price: 38900,
     rating: 4.7,
     reviews: 168,
@@ -192,6 +205,7 @@ export const PRODUCTS: Product[] = [
     brand: "Pretul",
     category: "tornilleria",
     subcategory: "Tornillos",
+    productType: "MATERIAL",
     price: 24500,
     rating: 4.6,
     reviews: 91,
@@ -218,6 +232,7 @@ export const PRODUCTS: Product[] = [
     brand: "Truper",
     category: "cerrajeria",
     subcategory: "Cerraduras",
+    productType: "MATERIAL",
     price: 1000,
     oldPrice: 1200,
     rating: 4.5,
@@ -249,6 +264,7 @@ export const PRODUCTS: Product[] = [
     brand: "3M",
     category: "seguridad-industrial",
     subcategory: "Protección craneal",
+    productType: "FINISHED_PRODUCT",
     price: 32900,
     rating: 4.8,
     reviews: 142,
@@ -275,6 +291,7 @@ export const PRODUCTS: Product[] = [
     brand: "Pretul",
     category: "pinturas-acabados",
     subcategory: "Pintura interior",
+    productType: "MATERIAL",
     price: 78900,
     oldPrice: 92900,
     rating: 4.4,
@@ -303,6 +320,7 @@ export const PRODUCTS: Product[] = [
     brand: "Makita",
     category: "herramientas-electricas",
     subcategory: "Sierras",
+    productType: "TOOL",
     price: 389900,
     rating: 4.9,
     reviews: 203,
@@ -331,6 +349,7 @@ export const PRODUCTS: Product[] = [
     brand: "Truper",
     category: "carpinteria",
     subcategory: "Martillos",
+    productType: "TOOL",
     price: 28900,
     rating: 4.7,
     reviews: 119,
@@ -356,6 +375,7 @@ export const PRODUCTS: Product[] = [
     brand: "Philips",
     category: "iluminacion",
     subcategory: "Reflectores",
+    productType: "FINISHED_PRODUCT",
     price: 64900,
     oldPrice: 79900,
     rating: 4.6,
@@ -384,6 +404,7 @@ export const PRODUCTS: Product[] = [
     brand: "Stanley",
     category: "herramientas-manuales",
     subcategory: "Medición",
+    productType: "TOOL",
     price: 18900,
     rating: 4.8,
     reviews: 240,
@@ -410,6 +431,7 @@ export const PRODUCTS: Product[] = [
     brand: "Pretul",
     category: "carpinteria",
     subcategory: "Herrajes",
+    productType: "MATERIAL",
     price: 9900,
     rating: 4.5,
     reviews: 64,
@@ -503,6 +525,7 @@ export type InventoryItem = {
   marca: string
   categoria: string
   subcategoria: string
+  productType: ProductType
   unidad: string
   costo: number
   precio: number
@@ -519,6 +542,7 @@ export const INVENTORY: InventoryItem[] = PRODUCTS.map((p, i) => ({
   marca: p.brand,
   categoria: CATEGORIES.find((c) => c.slug === p.category)?.name ?? p.category,
   subcategoria: p.subcategory,
+  productType: p.productType,
   unidad: "Unidad",
   costo: Math.round(p.price * 0.62),
   precio: p.price,
