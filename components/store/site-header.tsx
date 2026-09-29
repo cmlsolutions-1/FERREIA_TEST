@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
@@ -47,12 +48,9 @@ import { cn } from "@/lib/utils"
 
 function Logo({ className }: { className?: string }) {
   return (
-    <Link href="/" className={cn("flex items-center gap-2", className)}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent text-accent-foreground font-bold">
-        F
-      </span>
-      <span className="text-xl font-bold tracking-tight text-primary">
-        FERRE<span className="text-accent">IA</span>
+    <Link href="/" aria-label="Ir al inicio" className={cn("flex shrink-0 items-center", className)}>
+      <span className="flex h-11 w-[152px] items-center justify-center overflow-hidden">
+        <Image src="/sinFondoColor.png" alt="ToolList" width={152} height={152} priority className="h-[152px] w-[152px] max-w-none shrink-0" />
       </span>
     </Link>
   )

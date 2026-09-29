@@ -179,7 +179,7 @@ export const INITIAL_ORDERS: FerreiaOrder[] = [
     estimatedTo: "2026-09-20",
     currentLocation: "Pedido recibido en FERREIA",
     status: "Pedido confirmado",
-    events: [event("EV-10235-1", "Pedido confirmado", "Pedido recibido", "Estamos validando los datos de la compra.", "FERREIA · Bogotá", dateAt(14, 9))],
+    events: [event("EV-10235-1", "Pedido confirmado", "Pedido recibido", "Estamos validando los datos de la compra.", "TooList · Bogotá", dateAt(14, 9))],
   }),
   seedOrder({
     id: "FE-10234",
@@ -201,8 +201,8 @@ export const INITIAL_ORDERS: FerreiaOrder[] = [
     currentLocation: "Centro logístico Bogotá",
     status: "En preparación",
     events: [
-      event("EV-10234-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "FERREIA · Bogotá", dateAt(12, 11)),
-      event("EV-10234-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "FERREIA · Bogotá", dateAt(12, 11)),
+      event("EV-10234-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "TooList · Bogotá", dateAt(12, 11)),
+      event("EV-10234-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "TooList · Bogotá", dateAt(12, 11)),
       event("EV-10234-3", "En preparación", "Preparando tu pedido", "Estamos alistando y verificando los productos.", "Centro logístico Bogotá", dateAt(13, 8)),
     ],
   }),
@@ -226,8 +226,8 @@ export const INITIAL_ORDERS: FerreiaOrder[] = [
     currentLocation: "Centro de distribución Cali",
     status: "En tránsito",
     events: [
-      event("EV-10233-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "FERREIA · Bogotá", dateAt(9, 10)),
-      event("EV-10233-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "FERREIA · Bogotá", dateAt(9, 10)),
+      event("EV-10233-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "TooList · Bogotá", dateAt(9, 10)),
+      event("EV-10233-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "TooList · Bogotá", dateAt(9, 10)),
       event("EV-10233-3", "Enviado", "Pedido despachado", "TCC recogió el paquete.", "Bogotá D.C.", dateAt(11, 15)),
       event("EV-10233-4", "En tránsito", "En camino a tu ciudad", "El envío llegó al centro de distribución regional.", "Centro de distribución Cali", dateAt(13, 7)),
     ],
@@ -252,8 +252,8 @@ export const INITIAL_ORDERS: FerreiaOrder[] = [
     currentLocation: "Entregado en la dirección indicada",
     status: "Entregado",
     events: [
-      event("EV-10232-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "FERREIA · Bogotá", dateAt(3, 9)),
-      event("EV-10232-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "FERREIA · Bogotá", dateAt(3, 9)),
+      event("EV-10232-1", "Pedido confirmado", "Pedido recibido", "La compra fue registrada correctamente.", "TooList · Bogotá", dateAt(3, 9)),
+      event("EV-10232-2", "Pago confirmado", "Pago confirmado", "El pago fue aprobado.", "TooList · Bogotá", dateAt(3, 9)),
       event("EV-10232-3", "Enviado", "Pedido despachado", "Coordinadora recogió el paquete.", "Bogotá D.C.", dateAt(5, 14)),
       event("EV-10232-4", "En reparto", "En reparto", "El mensajero inició la ruta de entrega.", "Bogotá D.C.", dateAt(7, 8)),
       event("EV-10232-5", "Entregado", "Pedido entregado", "La mercancía fue recibida en la dirección indicada.", "Bogotá D.C.", dateAt(7, 15)),

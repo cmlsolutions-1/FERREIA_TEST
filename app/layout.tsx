@@ -16,23 +16,23 @@ export const metadata: Metadata = {
   title: 'TOOLIST — Ferretería Digital Inteligente para Colombia',
   description:
     'Plataforma de ferretería con ecommerce nacional, búsqueda por imagen con IA, asistente ferretero y ERP de inventarios y ventas. Envíos a toda Colombia.',
-  generator: 'v0.app',
+  generator: 'logo.png',
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
+        url: '/logo.png',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/icon-dark-32x32.png',
+        url: '/logo.png',
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
+        url: '/logo.png',
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/logo.png',
   },
 }
 

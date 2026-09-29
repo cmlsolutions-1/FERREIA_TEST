@@ -145,7 +145,7 @@ async function main() {
       createdAt: new Date(payment.createdAt), approvedAt: payment.approvedAt ? new Date(payment.approvedAt) : null,
     } })
   }
-  console.log("Seed FERREIA completado")
+  console.log("Seed TooList completado")
 }
 
-main().catch((error) => { console.error("Seed FERREIA falló:", error); process.exitCode = 1 }).finally(async () => prisma.$disconnect())
+main().catch((error) => { console.error("Seed TooList falló:", error); process.exitCode = 1 }).finally(async () => prisma.$disconnect())

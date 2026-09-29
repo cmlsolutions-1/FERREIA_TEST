@@ -448,7 +448,7 @@ export const TESTIMONIALS = [
   {
     name: "Carlos Mendoza",
     role: "Maestro de obra · Medellín",
-    text: "La búsqueda por foto me ahorra horas. Tomo una foto del repuesto y FERREIA me dice exactamente cuál es y dónde está disponible.",
+    text: "La búsqueda por foto me ahorra horas. Tomo una foto del repuesto y TooList me dice exactamente cuál es y dónde está disponible.",
     rating: 5,
   },
   {

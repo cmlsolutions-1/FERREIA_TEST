@@ -63,7 +63,7 @@ export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
             F
           </span>
-          FERREIA ERP
+          TooList
         </Link>
         <Button
           variant="ghost"
@@ -87,7 +87,7 @@ export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
             F
           </span>
           <div className="leading-tight">
-            <p className="font-bold text-sidebar-foreground">FERREIA</p>
+            <p className="font-bold text-sidebar-foreground">TooList</p>
             <p className="text-xs text-sidebar-foreground/60">Panel administrativo</p>
           </div>
         </div>

@@ -81,7 +81,7 @@ export function HomeHero() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/placeholder.svg?height=520&width=560&query=modern hardware tools store display"
-              alt="Herramientas y productos de ferretería FERREIA"
+              alt="Herramientas y productos de ferretería TooList"
               className="h-full w-full object-cover"
             />
           </div>

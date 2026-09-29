@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Phone, Mail, MapPin, Truck, ShieldCheck, CreditCard, Headphones } from "lucide-react"
 import { COMPANY } from "@/lib/data"
 import { getCategories, type CategoryRecord } from "@/services/categories.service"
@@ -34,9 +35,9 @@ export function SiteFooter() {
 
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-12 md:grid-cols-4">
         <div className="col-span-2 md:col-span-1">
-          <span className="text-2xl font-bold">
-            FERRE<span className="text-accent">IA</span>
-          </span>
+          <Link href="/" aria-label="Ir al inicio" className="flex h-14 w-44 items-center justify-center overflow-hidden">
+            <Image src="/sinFondoBlanco.png" alt="TooList" width={176} height={176} className="h-44 w-44 max-w-none shrink-0" />
+          </Link>
           <p className="mt-3 text-sm text-primary-foreground/70 text-pretty">
             {COMPANY.tagline}. Herramientas, iluminación, carpintería y ferretería
             especializada con inteligencia artificial.
@@ -74,7 +75,7 @@ export function SiteFooter() {
             Compañía
           </h3>
           <ul className="space-y-2 text-sm text-primary-foreground/80">
-            <li><Link href="/" className="hover:text-accent">Sobre FERREIA</Link></li>
+            <li><Link href="/" className="hover:text-accent">Sobre TooList</Link></li>
             <li><Link href="/asistente" className="hover:text-accent">Asistente IA</Link></li>
             <li><Link href="/buscar-ia" className="hover:text-accent">Buscar por foto</Link></li>
             <li><Link href="/admin" className="hover:text-accent">Panel administrador</Link></li>
@@ -99,7 +100,7 @@ export function SiteFooter() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-4 py-4 text-center text-xs text-primary-foreground/60">
-          © {new Date().getFullYear()} FERREIA — Plataforma Inteligente de Ferretería Digital
+          © {new Date().getFullYear()} TooList — Plataforma Inteligente de Ferretería Digital
           para Colombia. Todos los derechos reservados.
         </div>
       </div>

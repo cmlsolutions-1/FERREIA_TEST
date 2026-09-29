@@ -41,7 +41,7 @@ export type MercadoPagoSettings = {
 }
 
 export const initialMercadoPagoSettings: MercadoPagoSettings = {
-  accountName: "FERREIA Colombia",
+  accountName: "TooList Colombia",
   applicationId: "APP-MOCK-984251",
   publicKey: "TEST-mock-public-key-ferreia",
   environment: "sandbox",

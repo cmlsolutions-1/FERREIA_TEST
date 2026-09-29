@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
             <LockKeyhole className="h-7 w-7" />
           </div>
           <h1 className="mt-4 text-3xl font-bold text-primary">Panel administrativo</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Ingresa para gestionar FERREIA ERP.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Ingresa para gestionar TooList.</p>
         </div>
 
         <Card>

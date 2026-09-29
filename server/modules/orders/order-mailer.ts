@@ -57,13 +57,13 @@ export async function sendOrderCreatedEmail(order: MailOrder) {
   const totals = `<table role="presentation" width="100%" cellspacing="0" cellpadding="5" style="margin-top:16px;font-size:13px"><tr><td>Subtotal</td><td align="right">${money(order.subtotal)}</td></tr><tr><td>Impuestos</td><td align="right">${money(order.tax)}</td></tr><tr><td>Envío</td><td align="right">${money(order.shippingCost)}</td></tr><tr><td style="font-size:16px;font-weight:700">Total</td><td align="right" style="font-size:16px;font-weight:700">${money(order.total)}</td></tr></table>`
   const delivery = `<div style="margin-top:20px;padding:14px;border-left:4px solid #e89b2c;background:#fffbeb;font-size:13px;line-height:1.6"><b>Entrega:</b> ${escapeHtml(order.address)}, ${escapeHtml(order.city)}, ${escapeHtml(order.department)}<br><b>Método:</b> ${escapeHtml(order.shippingMethod)} · ${escapeHtml(order.estimatedFrom)} a ${escapeHtml(order.estimatedTo)}<br><b>Pago:</b> ${escapeHtml(order.paymentMethod)} · ${escapeHtml(order.paymentStatus)}</div>`
   const html = layout("Recibimos tu pedido", `Hola ${order.customerName}, tu compra fue registrada correctamente.`, productsTable(order) + totals + delivery, order)
-  return send(order.email, `FERREIA | Confirmación del pedido ${order.id}`, html, `FERREIA confirmó tu pedido ${order.id}. Total: ${money(order.total)}. Estado: ${order.status}.`)
+  return send(order.email, `TooList | Confirmación del pedido ${order.id}`, html, `TooList confirmó tu pedido ${order.id}. Total: ${money(order.total)}. Estado: ${order.status}.`)
 }
 
 export async function sendOrderUpdatedEmail(order: MailOrder, detail: string) {
   const update = `<div style="padding:18px;border-radius:12px;background:#eef6ff;border:1px solid #bfdbfe;line-height:1.7"><div style="font-size:12px;color:#526176;text-transform:uppercase">Estado actual</div><div style="font-size:20px;font-weight:800;color:#183153">${escapeHtml(order.status)}</div><p style="margin:10px 0 0">${escapeHtml(detail || `Tu pedido ahora se encuentra en estado ${order.status}.`)}</p><p style="margin:10px 0 0;font-size:13px"><b>Ubicación:</b> ${escapeHtml(order.currentLocation || "Por confirmar")}<br><b>Transportadora:</b> ${escapeHtml(order.carrier || "Por asignar")}<br><b>Guía:</b> ${escapeHtml(order.trackingNumber || "Pendiente")}<br><b>Entrega estimada:</b> ${escapeHtml(order.estimatedFrom || "Por confirmar")} a ${escapeHtml(order.estimatedTo || "Por confirmar")}</p></div>`
-  const html = layout("Tu pedido tiene una actualización", `Hola ${order.customerName}, FERREIA registró novedades en tu pedido.`, update + productsTable(order), order)
-  return send(order.email, `FERREIA | ${order.status} · Pedido ${order.id}`, html, `Actualización del pedido ${order.id}: ${order.status}. ${detail}`)
+  const html = layout("Tu pedido tiene una actualización", `Hola ${order.customerName}, TooList registró novedades en tu pedido.`, update + productsTable(order), order)
+  return send(order.email, `TooList | ${order.status} · Pedido ${order.id}`, html, `Actualización del pedido ${order.id}: ${order.status}. ${detail}`)
 }
 
 export async function verifyOrderMailer() {
