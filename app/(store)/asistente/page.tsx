@@ -12,8 +12,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatCOP } from "@/lib/data"
 import { prepareAdvisorImage } from "@/lib/ai-image"
 import { requestProjectAdvice } from "@/services/ai.service"
-import type { AdvisorHistoryMessage, AdvisorImage, CatalogProduct, VisionResult } from "@/server/modules/ai/ai.schema"
-import { Bot, ImagePlus, LoaderCircle, Send, Sparkles, User, X } from "lucide-react"
+import type { AdvisorHistoryMessage, AdvisorImage, CatalogProduct, ProjectPlan, VisionResult } from "@/server/modules/ai/ai.schema"
+import { AlertTriangle, Calculator, ImagePlus, LoaderCircle, Send, ShieldCheck, Sparkles, User, Wrench, X } from "lucide-react"
 
 type ChatMessage = {
   id: string
@@ -23,8 +23,18 @@ type ChatMessage = {
   image?: string
   imageName?: string
   vision?: VisionResult
+  plan?: ProjectPlan
 }
 
+<<<<<<< HEAD
+=======
+const FERREBOT_IMAGE = "/images/ferrebot-mascot-toollist.png"
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_IMAGE_SIDE = 768
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
 const VISION_LABELS: Record<VisionResult["imageType"], string> = {
   furniture_project: "Proyecto o mueble",
   tool_or_product: "Herramienta o producto",
@@ -48,6 +58,171 @@ function visionLabel(vision: VisionResult) {
   return VISION_LABELS[vision.imageType]
 }
 
+<<<<<<< HEAD
+=======
+function FerreBotAvatar({ large = false }: { large?: boolean }) {
+  return (
+    <div className={`relative shrink-0 overflow-hidden border-2 border-[#f15a24]/55 bg-gradient-to-br from-[#e7eef6] via-white to-[#fff0e8] shadow-[0_8px_24px_rgba(0,45,91,0.16)] ring-1 ring-[#002d5b]/10 ${large ? "h-20 w-20 rounded-3xl" : "h-16 w-16 rounded-2xl"}`}>
+      <Image
+        src={FERREBOT_IMAGE}
+        alt={large ? "FerreBot completo, robot ferretero con casco y llave" : "Primer plano de FerreBot en la conversación"}
+        fill
+        sizes={large ? "80px" : "64px"}
+        priority={large}
+        className={large
+          ? "object-contain p-1 drop-shadow-sm"
+          : "translate-y-[18%] scale-[1.55] object-contain drop-shadow-sm"
+        }
+      />
+    </div>
+  )
+}
+
+function ProjectPlanCard({ plan }: { plan: ProjectPlan }) {
+  return (
+    <Card className="overflow-hidden border-primary/20 bg-card text-left shadow-sm">
+      <div className="border-b border-border bg-gradient-to-r from-primary/10 via-cyan-500/5 to-amber-400/10 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Calculator className="h-4 w-4 text-primary" />
+              {plan.isBasic ? "Estimación del armado básico" : "Estimación del proyecto"}
+            </div>
+            <h3 className="font-bold text-foreground">{plan.title}</h3>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{plan.isBasic ? "Total básico" : "Total estimado"}</p>
+            <p className="text-lg font-extrabold text-accent">{formatCOP(plan.total)}</p>
+            <p className="text-[10px] text-muted-foreground">Solo materiales e insumos incorporados</p>
+          </div>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{plan.summary}</p>
+      </div>
+
+      {plan.items.length > 0 && (
+        <div className="space-y-2 p-3">
+          {plan.items.map((item) => (
+            <Link
+              key={item.product.id}
+              href={`/producto/${item.product.id}`}
+              className="flex items-center gap-3 rounded-xl border border-border p-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
+            >
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                <Image src={item.product.image || "/placeholder.svg"} alt={item.product.name} fill className="object-cover" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-1 text-xs font-semibold text-foreground">{item.product.name}</p>
+                <p className="line-clamp-1 text-[11px] text-muted-foreground">{item.requirement} · {item.purpose}</p>
+                <p className="text-[11px] text-muted-foreground">{item.quantity} × {formatCOP(item.unitPrice)}</p>
+              </div>
+              <p className="shrink-0 text-sm font-bold text-foreground">{formatCOP(item.subtotal)}</p>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {plan.recommendedTools.length > 0 && (
+        <div className="mx-3 mb-3 rounded-xl border border-[#002d5b]/20 bg-[#eef4fa] p-3 text-left">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#002d5b]">
+            <Wrench className="h-4 w-4 text-[#f15a24]" />
+            Herramientas que debes tener
+          </div>
+          <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground">
+            Se recomiendan para construir el proyecto, pero no forman parte del producto ni se suman al total.
+          </p>
+          <ul className="space-y-2">
+            {plan.recommendedTools.map((tool) => (
+              <li key={tool.name} className="rounded-lg border border-[#002d5b]/10 bg-white/75 px-3 py-2 text-xs">
+                <p className="font-semibold text-[#002d5b]">{tool.name}</p>
+                <p className="mt-0.5 text-muted-foreground">{tool.purpose} · {tool.note}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {plan.unavailable.length > 0 && (
+        <div className="mx-3 mb-3 rounded-xl border border-amber-300/60 bg-amber-50 p-3 text-amber-950">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold">
+            <AlertTriangle className="h-4 w-4" />
+            También debes conseguir
+          </div>
+          <ul className="space-y-1 text-xs">
+            {plan.unavailable.map((item) => (
+              <li key={`${item.name}-${item.quantityDescription}`}>• <strong>{item.name}</strong> ({item.quantityDescription}): {item.purpose}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {plan.optionalAddOns.length > 0 && (
+        <div className="mx-3 mb-3 rounded-xl border border-[#f15a24]/35 bg-[#fff4ed] p-3 text-[#4b2a1a]">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#002d5b]">
+            <Sparkles className="h-4 w-4 text-[#f15a24]" />
+            Opcionales para agregar después
+          </div>
+          {plan.optionalAddOns.map((item) => (
+            <div key={item.name} className="text-xs leading-relaxed">
+              <p><strong>{item.name}:</strong> {item.description}</p>
+              <p className="mt-1 font-medium text-[#002d5b]">{item.followUpPrompt}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {plan.steps.length > 0 && (
+        <div className="border-t border-border px-4 py-3">
+          <p className="mb-2 text-xs font-semibold text-foreground">Pasos sugeridos</p>
+          <ol className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+            {plan.steps.map((step, index) => <li key={step}>{index + 1}. {step}</li>)}
+          </ol>
+        </div>
+      )}
+
+      {plan.safetyNotes.length > 0 && (
+        <div className="flex gap-2 border-t border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>{plan.safetyNotes.join(" ")}</p>
+        </div>
+      )}
+      <p className="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
+        Estimación orientativa basada en las medidas suministradas y el inventario actual. Verifica medidas y compatibilidad antes de comprar o cortar.
+      </p>
+    </Card>
+  )
+}
+
+async function prepareImage(file: File): Promise<AdvisorImage> {
+  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    throw new Error("La foto debe estar en formato JPG, PNG o WEBP.")
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error("La foto no puede superar los 10 MB.")
+  }
+
+  const bitmap = await createImageBitmap(file)
+  try {
+    if (bitmap.width < 32 || bitmap.height < 32) {
+      throw new Error("La foto es demasiado pequeña para poder analizarla.")
+    }
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
+    const width = Math.max(1, Math.round(bitmap.width * scale))
+    const height = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement("canvas")
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("El navegador no pudo preparar la foto.")
+    context.fillStyle = "#ffffff"
+    context.fillRect(0, 0, width, height)
+    context.drawImage(bitmap, 0, 0, width, height)
+    return { name: file.name, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }
+  } finally {
+    bitmap.close()
+  }
+}
+
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
 const SUGGESTIONS = [
   "Quiero construir una mesa de centro",
   "Quiero construir un mueble para televisor",
@@ -70,10 +245,13 @@ export default function AsistentePage() {
   const [processingImage, setProcessingImage] = useState(false)
   const [selectedImage, setSelectedImage] = useState<AdvisorImage | null>(null)
   const [imageError, setImageError] = useState("")
-  const endRef = useRef<HTMLDivElement>(null)
+  const chatRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }) }, [messages, typing])
+  useEffect(() => {
+    const chat = chatRef.current
+    if (chat) chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" })
+  }, [messages, typing])
 
   async function send(value: string) {
     const trimmed = value.trim()
@@ -105,6 +283,7 @@ export default function AsistentePage() {
         text: response.data.assistantMessage,
         products: response.data.catalog.products,
         vision: response.data.vision,
+        plan: response.data.plan,
       }])
     } catch (error) {
       setMessages((prev) => [...prev, {
@@ -138,25 +317,27 @@ export default function AsistentePage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-3xl flex-col px-4 py-6">
-      <header className="mb-4 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <Bot className="h-6 w-6" />
-        </div>
+      <header className="mb-5 flex items-center gap-4">
+        <FerreBotAvatar large />
         <div>
           <h1 className="text-lg font-bold leading-tight text-foreground">FerreBot — Asistente Ferretero IA</h1>
-          <p className="text-sm text-muted-foreground">Describe tu proyecto y recibe recomendaciones de productos</p>
+          <p className="text-sm text-muted-foreground">Describe tu proyecto, adjunta una foto y recibe una estimación con inventario real</p>
         </div>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-2xl border border-border bg-muted/30 p-4">
+      <div ref={chatRef} className="h-[48vh] min-h-[320px] max-h-[560px] space-y-4 overflow-y-auto rounded-2xl border border-border bg-muted/30 p-4 sm:min-h-[360px]">
         {messages.map((m) => (
           <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className={m.role === "assistant" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground"}>
-                {m.role === "assistant" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
-              </AvatarFallback>
-            </Avatar>
-            <div className={`max-w-[80%] space-y-3 ${m.role === "user" ? "items-end text-right" : ""}`}>
+            {m.role === "assistant" ? (
+              <FerreBotAvatar />
+            ) : (
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarFallback className="bg-accent text-accent-foreground">
+                  <User className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
+            )}
+            <div className={`space-y-3 ${m.role === "user" ? "max-w-[80%] items-end text-right" : "max-w-[calc(100%-4.75rem)] sm:max-w-[82%]"}`}>
               <div
                 className={`inline-block rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                   m.role === "user"
@@ -184,7 +365,8 @@ export default function AsistentePage() {
                   <span>confianza estimada {Math.round(m.vision.confidence * 100)}%</span>
                 </div>
               )}
-              {m.products && m.products.length > 0 && (
+              {m.plan && <ProjectPlanCard plan={m.plan} />}
+              {!m.plan && m.products && m.products.length > 0 && (
                 <div className="grid gap-2 text-left sm:grid-cols-3">
                   {m.products.map((p) => (
                       <Link key={p.id} href={`/producto/${p.id}`}>
@@ -206,11 +388,7 @@ export default function AsistentePage() {
 
         {typing && (
           <div className="flex gap-3">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                <Bot className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
+            <FerreBotAvatar />
             <div className="inline-flex items-center gap-2 rounded-2xl bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
               {processingImage ? (
                 <>
@@ -227,7 +405,6 @@ export default function AsistentePage() {
             </div>
           </div>
         )}
-        <div ref={endRef} />
       </div>
 
       {messages.length <= 1 && (

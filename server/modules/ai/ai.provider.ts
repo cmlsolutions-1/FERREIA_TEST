@@ -13,7 +13,22 @@ const ollamaResponseSchema = z.object({
   message: z.object({ content: z.string() }),
 })
 
+<<<<<<< HEAD
 async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>): Promise<{ data: T; model: string }> {
+=======
+let requestInProgress = false
+
+async function structuredChat<T>(
+  messages: OllamaMessage[],
+  schema: z.ZodType<T>,
+  options?: { maxOutputTokens?: number },
+): Promise<{ data: T; model: string }> {
+  if (requestInProgress) {
+    throw new ApiError(429, "AI_BUSY", "FerreBot está procesando otra consulta. Intenta nuevamente en unos segundos")
+  }
+
+  requestInProgress = true
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), aiConfig.timeoutMs)
 
@@ -32,7 +47,7 @@ async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>
         options: {
           temperature: 0,
           num_ctx: aiConfig.contextLength,
-          num_predict: aiConfig.maxOutputTokens,
+          num_predict: options?.maxOutputTokens ?? aiConfig.maxOutputTokens,
         },
       }),
     })

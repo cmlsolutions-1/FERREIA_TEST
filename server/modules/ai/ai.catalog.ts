@@ -14,10 +14,17 @@ const normalize = (value: string) => value
   .replace(/[\u0300-\u036f]/g, "")
   .toLowerCase()
 
+function singularToken(token: string) {
+  if (token.length > 5 && token.endsWith("ces")) return `${token.slice(0, -3)}z`
+  if (token.length > 6 && token.endsWith("es")) return token.slice(0, -2)
+  if (token.length > 4 && token.endsWith("s")) return token.slice(0, -1)
+  return token
+}
+
 function tokensFrom(terms: string[]) {
   return [...new Set(terms
     .flatMap((term) => normalize(term).split(/[^a-z0-9]+/))
-    .map((token) => token.trim())
+    .map((token) => singularToken(token.trim()))
     .filter((token) => token.length >= 2 && !STOP_WORDS.has(token)))]
     .slice(0, 12)
 }
@@ -92,7 +99,43 @@ function directProductMatch(product: ReturnType<typeof productToDto>, terms: str
   return targetTokens.some((token) => normalizedName === token || normalizedName.startsWith(`${token} `))
 }
 
+function matchesRequirement(product: CatalogProduct, terms: string[]) {
+  const searchable = normalize([
+    product.name,
+    product.description,
+    product.category,
+    product.categoryName,
+    product.subcategory,
+    product.brand,
+  ].join(" "))
+  return terms.some((term) => {
+    const tokens = tokensFrom([term])
+    return tokens.length > 0 && tokens.every((token) => searchable.includes(token))
+  })
+}
+
+function catalogProduct(record: Awaited<ReturnType<typeof productRepository.list>>[number], matchType: "direct" | "related") {
+  const dto = productToDto(record)
+  const publicDto = publicProduct(dto)
+  return {
+    id: publicDto.id,
+    sku: publicDto.sku,
+    name: publicDto.name,
+    description: publicDto.description,
+    category: publicDto.category,
+    categoryName: publicDto.categoryName,
+    subcategory: publicDto.subcategory,
+    productType: publicDto.productType,
+    brand: publicDto.brand,
+    price: publicDto.price,
+    stock: publicDto.stock,
+    image: publicDto.image,
+    matchType,
+  } satisfies CatalogProduct
+}
+
 export const aiCatalog = {
+<<<<<<< HEAD
   async correctSpelling(message: string) {
     const products = await productRepository.spellingTerms()
     const vocabulary = products.flatMap((product) => [
@@ -107,6 +150,10 @@ export const aiCatalog = {
     ])
     return resolveCatalogSpelling(message, vocabulary)
   },
+=======
+  matchesRequirement,
+
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
   async search(terms: string[], limit = 6): Promise<CatalogProduct[]> {
     const tokens = tokensFrom(terms)
     if (tokens.length === 0) return []
@@ -120,9 +167,10 @@ export const aiCatalog = {
     return records
       .map((record) => {
         const dto = productToDto(record)
-        const publicDto = publicProduct(dto)
+        const product = catalogProduct(record, directProductMatch(dto.name, terms) ? "direct" : "related")
         return {
           score: relevanceScore(dto, tokens, terms),
+<<<<<<< HEAD
           product: {
             id: publicDto.id,
             sku: publicDto.sku,
@@ -138,11 +186,19 @@ export const aiCatalog = {
             image: publicDto.image,
             matchType: directProductMatch(dto, terms) ? "direct" as const : "related" as const,
           },
+=======
+          product,
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
         }
       })
-      .filter(({ score }) => score > 0)
+      .filter(({ score }) => score >= 6)
       .sort((left, right) => right.score - left.score || right.product.stock - left.product.stock)
       .slice(0, limit)
       .map(({ product }) => product)
+  },
+
+  async listActive(limit = 80): Promise<CatalogProduct[]> {
+    const records = await productRepository.list({ active: true }, 0, limit, { stock: "desc" })
+    return records.map((record) => catalogProduct(record, "related"))
   },
 }

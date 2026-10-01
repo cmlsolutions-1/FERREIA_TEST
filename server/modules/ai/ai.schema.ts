@@ -84,6 +84,63 @@ export const catalogProductSchema = z.object({
   matchType: z.enum(["direct", "related"]),
 })
 
+export const projectPlanDraftSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  summary: z.string().trim().min(1).max(500),
+  requirements: z.array(z.object({
+    name: z.string().trim().min(1).max(140),
+    productType: z.enum(["TOOL", "MATERIAL", "CONSUMABLE"]),
+    purchaseQuantity: z.number().int().min(1).max(100),
+    quantityDescription: z.string().trim().min(1).max(120),
+    purpose: z.string().trim().min(1).max(240),
+    searchTerms: z.array(z.string().trim().min(2).max(80)).min(1).max(5),
+  })).max(16),
+  steps: z.array(z.string().trim().min(1).max(280)).max(10),
+  assumptions: z.array(z.string().trim().min(1).max(240)).max(8),
+  safetyNotes: z.array(z.string().trim().min(1).max(240)).max(8),
+})
+
+const unavailablePlanItemSchema = z.object({
+  name: z.string(),
+  quantityDescription: z.string(),
+  purpose: z.string(),
+})
+
+const optionalPlanItemSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  followUpPrompt: z.string(),
+})
+
+export const projectPlanSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  isEstimate: z.literal(true),
+  isBasic: z.boolean(),
+  currency: z.literal("COP"),
+  total: z.number().nonnegative(),
+  suppliesTotal: z.number().nonnegative(),
+  items: z.array(z.object({
+    product: catalogProductSchema,
+    quantity: z.number().int().positive(),
+    requirement: z.string(),
+    purpose: z.string(),
+    note: z.string(),
+    unitPrice: z.number().nonnegative(),
+    subtotal: z.number().nonnegative(),
+  })),
+  recommendedTools: z.array(z.object({
+    name: z.string(),
+    purpose: z.string(),
+    note: z.string(),
+  })),
+  unavailable: z.array(unavailablePlanItemSchema),
+  optionalAddOns: z.array(optionalPlanItemSchema),
+  steps: projectPlanDraftSchema.shape.steps,
+  assumptions: projectPlanDraftSchema.shape.assumptions,
+  safetyNotes: projectPlanDraftSchema.shape.safetyNotes,
+})
+
 export const projectAdvisorResponseSchema = z.object({
   status: z.enum(["blocked", "needs_information", "ready_for_catalog"]),
   intent: advisorIntentSchema,
@@ -101,6 +158,7 @@ export const projectAdvisorResponseSchema = z.object({
     products: z.array(catalogProductSchema),
   }),
   vision: visionResultSchema.optional(),
+  plan: projectPlanSchema.optional(),
 })
 
 export type AdvisorRequest = z.infer<typeof advisorRequestSchema>
@@ -109,4 +167,6 @@ export type AdvisorImage = z.infer<typeof advisorImageSchema>
 export type VisionResult = z.infer<typeof visionResultSchema>
 export type ProjectAnalysis = z.infer<typeof projectAnalysisSchema>
 export type CatalogProduct = z.infer<typeof catalogProductSchema>
+export type ProjectPlanDraft = z.infer<typeof projectPlanDraftSchema>
+export type ProjectPlan = z.infer<typeof projectPlanSchema>
 export type ProjectAdvisorResponse = z.infer<typeof projectAdvisorResponseSchema>

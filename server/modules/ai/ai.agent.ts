@@ -2,6 +2,7 @@ import { z } from "zod"
 import { aiCatalog } from "@/server/modules/ai/ai.catalog"
 import { aiConfig } from "@/server/modules/ai/ai.config"
 import { evaluateAiBusinessPolicy } from "@/server/modules/ai/ai.policy"
+import { aiPlanner } from "@/server/modules/ai/ai.plan"
 import { aiProvider } from "@/server/modules/ai/ai.provider"
 import { aiVision } from "@/server/modules/ai/ai.vision"
 import type { SpellingResolution } from "@/server/modules/ai/ai.spelling"
@@ -10,7 +11,10 @@ import {
   projectAnalysisSchema,
   projectAdvisorResponseSchema,
   type AdvisorRequest,
+  type ProjectAnalysis,
   type ProjectAdvisorResponse,
+  type ProjectPlan,
+  type ProjectPlanDraft,
   type VisionResult,
 } from "@/server/modules/ai/ai.schema"
 
@@ -21,9 +25,11 @@ Reglas obligatorias:
 - Los proyectos manuales válidos incluyen muebles, mesas, armarios, alacenas, repisas, soportes, instalación y trabajos de ferretería.
 - Fabricar aparatos electrónicos como televisores, computadores, celulares o consolas está fuera de alcance.
 - "Mueble para televisor" y "soporte para televisor" sí son proyectos manuales válidos.
-- Si la persona quiere construir algo, primero se deberá buscar si existe terminado en el catálogo y luego buscar materiales y herramientas.
+- Si la persona quiere construir algo, primero se deberá buscar si existe terminado en el catálogo y luego buscar los materiales y consumibles que quedarán incorporados al proyecto.
+- Las herramientas manuales o eléctricas necesarias para trabajar se sugieren aparte, sin precio y sin sumarlas a la cotización del proyecto.
 - No inventes productos, precios, existencias, marcas ni cantidades.
-- Para un proyecto manual identifica las especificaciones conocidas y pregunta únicamente las que falten, por ejemplo dimensiones, material, uso o acabado.
+- Para un proyecto manual identifica las especificaciones conocidas y pregunta únicamente las indispensables que falten, por ejemplo dimensiones, material, uso o configuración.
+- El acabado no es obligatorio: si no solicitan pintura, barniz, laca o color, considera una versión básica armada y funcional sin acabado, y no preguntes por él antes de calcular.
 - Nunca solicites presupuesto, rango de precios ni cuánto quiere gastar la persona.
 - Los términos de búsqueda deben ser palabras cortas útiles para consultar un catálogo de ferretería.
 - Responde únicamente con el JSON solicitado.`
@@ -32,6 +38,18 @@ const placeholder = /^(n\/?a|no aplica|ninguno|ninguna|sin nombre|no especificad
 const budgetQuestion = /\b(presupuesto|rango de precios?|cu[aá]nto (?:quiere|puede) gastar|dinero disponible)\b/i
 const manualAction = /\b(construir|fabricar|hacer|armar|ensamblar|crear)\b/i
 const normalizeLabel = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+const noFinish = /\bsin\s+(?:pintura|barniz|acabado)|\bcrudo\b|\bsin terminar\b/i
+const finishRequirement = /\b(pintura|barniz|laca|sellador|acabado)\b/i
+
+function specificationGroup(value: string) {
+  const normalized = normalizeLabel(value)
+  if (/material|madera|mdf|melamina|metal|acero|aluminio/.test(normalized)) return "material"
+  if (/dimension|medida|tamano|ancho|alto|largo|profundidad|grosor|espesor/.test(normalized)) return "dimensions"
+  if (/acabado|color|barniz|pintura|mate|brillante/.test(normalized)) return "finish"
+  if (/uso|destino|ubicacion|interior|exterior/.test(normalized)) return "use"
+  if (/configuracion|pata|puerta|cajon|repisa|division/.test(normalized)) return "configuration"
+  return normalized
+}
 
 const formatCop = (value: number) => new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -64,6 +82,15 @@ function enrichKnownSpecifications(
       .find((value) => new RegExp(`\\b${value}\\b`, "i").test(currentMessage))
     if (material) current.push({ name: "material", value: material })
   }
+  const hasDimensions = current.some(({ name }) => specificationGroup(name) === "dimensions")
+  const dimensions = currentMessage.match(/\d+(?:[.,]\d+)?\s*(?:mm|cm|m)\b/gi)
+  if (!hasDimensions && dimensions?.length) current.push({ name: "dimensiones", value: dimensions.join(" × ") })
+  const hasFinish = current.some(({ name }) => specificationGroup(name) === "finish")
+  const finish = currentMessage.match(/\b(?:sin\s+(?:pintura|barniz|acabado)|barniz(?:ado)?|pintura|natural|mate|brillante|pintad[oa]|lacad[oa])\b/gi)
+  if (!hasFinish && finish?.length) current.push({ name: "acabado", value: [...new Set(finish.map((value) => value.toLowerCase()))].join(", ") })
+  const hasConfiguration = current.some(({ name }) => specificationGroup(name) === "configuration")
+  const configuration = currentMessage.match(/\b(?:con\s+)?(?:una|un|dos|tres|cuatro|cinco|seis|\d+)\s+(?:patas?|puertas?|cajones?|repisas?|divisiones?)\b/i)
+  if (!hasConfiguration && configuration) current.push({ name: "configuración", value: configuration[0] })
   const hasUse = current.some(({ name }) => ["uso", "destino"].includes(normalizeLabel(name)))
   const projectUse = projectName.match(/\bpara\s+(.+)$/i)?.[1]?.trim()
   if (!hasUse && projectUse) current.push({ name: "uso", value: `para ${projectUse}` })
@@ -147,10 +174,12 @@ function responseFromAnalysis(
   const knownSpecifications = enrichKnownSpecifications(analysis.knownSpecifications, currentMessage, projectName).filter(({ name, value }) => (
     !placeholder.test(name.trim()) && !placeholder.test(value.trim())
   ))
-  const knownNames = new Set(knownSpecifications.map(({ name }) => normalizeLabel(name)))
+  const knownGroups = new Set(knownSpecifications.map(({ name }) => specificationGroup(name)))
   const missing = analysis.intent === "manual_project"
     ? unique(analysis.missingSpecifications).filter((value) => (
-      !budgetQuestion.test(value) && !knownNames.has(normalizeLabel(value))
+      !budgetQuestion.test(value)
+      && specificationGroup(value) !== "finish"
+      && !knownGroups.has(specificationGroup(value))
     ))
     : []
 
@@ -257,6 +286,203 @@ function unclearImageResponse(
   })
 }
 
+async function buildProjectPlan(
+  draft: ProjectPlanDraft,
+  options: Pick<ProjectPlan, "isBasic" | "optionalAddOns">,
+): Promise<ProjectPlan> {
+  const selectedIds = new Set<string>()
+  const unavailable: ProjectPlan["unavailable"] = []
+  const items: ProjectPlan["items"] = []
+  const recommendedTools: ProjectPlan["recommendedTools"] = draft.requirements
+    .filter((requirement) => requirement.productType === "TOOL")
+    .filter((requirement, index, collection) => (
+      collection.findIndex((candidate) => normalizeLabel(candidate.name) === normalizeLabel(requirement.name)) === index
+    ))
+    .map((requirement) => ({
+      name: requirement.name,
+      purpose: requirement.purpose,
+      note: requirement.quantityDescription,
+    }))
+
+  const pricedRequirements = draft.requirements.filter((requirement) => requirement.productType !== "TOOL")
+  const matches = await Promise.all(pricedRequirements.map(async (requirement) => {
+    const products = await aiCatalog.search(requirement.searchTerms, 5)
+    const product = products.find((candidate) => (
+      aiCatalog.matchesRequirement(candidate, requirement.searchTerms)
+      &&
+      (
+        candidate.productType === requirement.productType
+        || (["MATERIAL", "CONSUMABLE"].includes(candidate.productType) && ["MATERIAL", "CONSUMABLE"].includes(requirement.productType))
+      )
+      && candidate.stock >= requirement.purchaseQuantity
+    ))
+    return { requirement, product }
+  }))
+
+  for (const { requirement, product } of matches) {
+    if (!product) {
+      unavailable.push({
+        name: requirement.name,
+        quantityDescription: requirement.quantityDescription,
+        purpose: requirement.purpose,
+      })
+      continue
+    }
+    if (selectedIds.has(product.id)) {
+      unavailable.push({
+        name: requirement.name,
+        quantityDescription: requirement.quantityDescription,
+        purpose: requirement.purpose,
+      })
+      continue
+    }
+    selectedIds.add(product.id)
+    items.push({
+      product,
+      quantity: requirement.purchaseQuantity,
+      requirement: requirement.name,
+      purpose: requirement.purpose,
+      note: requirement.quantityDescription,
+      unitPrice: product.price,
+      subtotal: product.price * requirement.purchaseQuantity,
+    })
+  }
+
+  for (const requirement of draft.requirements) {
+    if (requirement.productType === "TOOL") continue
+    const represented = items.some((item) => normalizeLabel(item.requirement) === normalizeLabel(requirement.name))
+      || unavailable.some((item) => normalizeLabel(item.name) === normalizeLabel(requirement.name))
+    if (!represented) {
+      unavailable.push({
+        name: requirement.name,
+        quantityDescription: requirement.quantityDescription,
+        purpose: requirement.purpose,
+      })
+    }
+  }
+
+  const uniqueUnavailable = unavailable.filter((item, index, collection) => (
+    collection.findIndex((candidate) => normalizeLabel(candidate.name) === normalizeLabel(item.name)) === index
+  ))
+  const suppliesTotal = items.reduce((sum, item) => sum + item.subtotal, 0)
+
+  return {
+    title: draft.title,
+    summary: draft.summary,
+    isEstimate: true,
+    isBasic: options.isBasic,
+    currency: "COP",
+    total: suppliesTotal,
+    suppliesTotal,
+    items,
+    recommendedTools,
+    unavailable: uniqueUnavailable,
+    optionalAddOns: options.optionalAddOns,
+    steps: draft.steps,
+    assumptions: draft.assumptions,
+    safetyNotes: draft.safetyNotes,
+  }
+}
+
+function ensureCoreSpecificationCoverage(
+  plan: ProjectPlan,
+  specifications: Array<{ name: string; value: string }>,
+): ProjectPlan {
+  const missing = [...plan.unavailable]
+  const requiredGroups = [
+    {
+      group: "material",
+      quantityDescription: "Cantidad según el despiece y las medidas suministradas",
+      purpose: "Construir la estructura principal del proyecto",
+    },
+    {
+      group: "finish",
+      quantityDescription: "Cantidad según el área y rendimiento del producto",
+      purpose: "Aplicar el acabado solicitado",
+    },
+  ]
+
+  for (const required of requiredGroups) {
+    const specification = specifications.find(({ name }) => specificationGroup(name) === required.group)
+    if (!specification) continue
+    if (required.group === "finish" && noFinish.test(normalizeLabel(specification.value))) continue
+    const represented = plan.items.some((item) => specificationGroup(item.requirement) === required.group)
+      || missing.some((item) => (
+        specificationGroup(item.name) === required.group
+        || normalizeLabel(item.name).includes(normalizeLabel(specification.value))
+      ))
+    if (!represented) {
+      missing.push({
+        name: specification.value,
+        quantityDescription: required.quantityDescription,
+        purpose: required.purpose,
+      })
+    }
+  }
+
+  return { ...plan, unavailable: missing }
+}
+
+async function attachProjectPlan(
+  response: ProjectAdvisorResponse,
+  analysis: ProjectAnalysis,
+): Promise<ProjectAdvisorResponse> {
+  if (response.intent !== "manual_project" || response.status !== "ready_for_catalog") return response
+
+  const { data } = await aiPlanner.create(analysis, response.knownSpecifications)
+  const finishSpecification = response.knownSpecifications.find(({ name }) => specificationGroup(name) === "finish")
+  const requestedFinish = Boolean(finishSpecification && !noFinish.test(normalizeLabel(finishSpecification.value)))
+  const projectText = normalizeLabel(`${analysis.projectName} ${analysis.normalizedRequest}`)
+  const isFurniture = /mesa|armario|alacena|mueble|repis|gabinete|biblioteca|escritorio/.test(projectText)
+  const controlledDraft = requestedFinish
+    ? data
+    : {
+        ...data,
+        requirements: data.requirements.filter((requirement) => !finishRequirement.test(normalizeLabel([
+          requirement.name,
+          requirement.purpose,
+          ...requirement.searchTerms,
+        ].join(" ")))),
+      }
+  const optionalAddOns: ProjectPlan["optionalAddOns"] = isFurniture && !finishSpecification
+    ? [{
+        name: "Pintura, barniz o acabado",
+        description: "No está incluido en el total básico. Se puede agregar después según el color y la protección que prefieras.",
+        followUpPrompt: "¿Quieres agregar pintura, barniz u otro acabado?",
+      }]
+    : []
+  const plan = ensureCoreSpecificationCoverage(await buildProjectPlan(controlledDraft, {
+    isBasic: !requestedFinish,
+    optionalAddOns,
+  }), response.knownSpecifications)
+  const selectedProducts = plan.items.map((item) => item.product)
+  const productIds = new Set<string>()
+  const products = [...response.catalog.products, ...selectedProducts].filter((product) => {
+    if (productIds.has(product.id)) return false
+    productIds.add(product.id)
+    return true
+  })
+  const availableMessage = plan.items.length > 0
+    ? ` Preparé una estimación con ${plan.items.length} ${plan.items.length === 1 ? "material o insumo disponible" : "materiales e insumos disponibles"} por ${formatCop(plan.total)}.`
+    : " No encontré en el inventario actual los insumos suficientes para cotizar este proyecto."
+  const toolsMessage = plan.recommendedTools.length > 0
+    ? ` También te indico ${plan.recommendedTools.length} ${plan.recommendedTools.length === 1 ? "herramienta necesaria" : "herramientas necesarias"}; son recomendaciones de trabajo y no están incluidas en el precio.`
+    : ""
+  const unavailableMessage = plan.unavailable.length > 0
+    ? ` También necesitarías conseguir por fuera: ${plan.unavailable.slice(0, 5).map((item) => item.name).join(", ")}.`
+    : ""
+  const optionalMessage = plan.optionalAddOns.length > 0
+    ? " Esta es la versión básica, sin pintura ni barniz. ¿Quieres agregar pintura, barniz u otro acabado como opción adicional?"
+    : ""
+
+  return projectAdvisorResponseSchema.parse({
+    ...response,
+    assistantMessage: `${response.assistantMessage}${availableMessage}${toolsMessage}${unavailableMessage}${optionalMessage}`,
+    catalog: { ...response.catalog, searched: true, products },
+    plan,
+  })
+}
+
 export const aiAgent = {
   async advise(input: AdvisorRequest): Promise<ProjectAdvisorResponse> {
     const currentMessage = input.message || "Analiza esta imagen y busca productos relacionados."
@@ -278,13 +504,22 @@ export const aiAgent = {
       const products = imageProjectAnalysis.shouldSearchCatalog
         ? await aiCatalog.search(catalogTerms)
         : []
+<<<<<<< HEAD
       return withSpellingNotice(responseFromAnalysis(
+=======
+      const response = responseFromAnalysis(
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
         enrichedData,
         model || aiConfig.model,
         products,
         interpretedMessage,
         visionMetadata(data),
+<<<<<<< HEAD
       ), spelling)
+=======
+      )
+      return attachProjectPlan(response, enrichedData)
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
     }
 
     const schema = z.toJSONSchema(projectAnalysisSchema)
@@ -301,6 +536,7 @@ export const aiAgent = {
     const modelTerms = data.intent === "manual_project" && !placeholder.test(data.projectName)
       ? unique([data.projectName, ...data.searchTerms])
       : unique(data.searchTerms)
+<<<<<<< HEAD
     const catalogTerms = unique([...correctedTerms, ...modelTerms])
     const shouldSearchCatalog = data.shouldSearchCatalog || catalogTerms.length > 0
     const products = shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
@@ -313,5 +549,11 @@ export const aiAgent = {
       ? { ...data, intent: "finished_product_search" as const, projectName: correctedTerms[0] ?? directProduct!.name, searchTerms: catalogTerms, missingSpecifications: [], shouldSearchCatalog: true }
       : { ...data, searchTerms: catalogTerms, shouldSearchCatalog }
     return withSpellingNotice(responseFromAnalysis(enrichedData, model || aiConfig.model, responseProducts, interpretedMessage), spelling)
+=======
+    const enrichedData = { ...data, searchTerms: catalogTerms }
+    const products = data.shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
+    const response = responseFromAnalysis(enrichedData, model || aiConfig.model, products, currentMessage)
+    return attachProjectPlan(response, enrichedData)
+>>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
   },
 }
