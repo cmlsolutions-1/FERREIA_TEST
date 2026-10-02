@@ -12,7 +12,7 @@ export const createOrderSchema = z.object({
   city: z.string().trim().min(2), department: z.string().trim().min(2),
 }).strict()
 export const updateOrderSchema = z.object({
-  status: z.enum(ORDER_STATUSES).optional(), paymentStatus: z.enum(["Pendiente", "Pagado", "Contra entrega", "Reembolsado"]).optional(),
+  status: z.enum(ORDER_STATUSES).optional(), paymentStatus: z.enum(["Pendiente", "Pagado", "Contra entrega", "Reembolsado", "Rechazado"]).optional(),
   carrier: z.string().max(100).optional(), trackingNumber: z.string().max(100).optional(),
   currentLocation: z.string().max(200).optional(), detail: z.string().max(500).optional(),
   estimatedFrom: z.iso.date().optional(), estimatedTo: z.iso.date().optional(),

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatCOP } from "@/lib/data"
+import { prepareAdvisorImage } from "@/lib/ai-image"
 import { requestProjectAdvice } from "@/services/ai.service"
 import type { AdvisorHistoryMessage, AdvisorImage, CatalogProduct, VisionResult } from "@/server/modules/ai/ai.schema"
 import { Bot, ImagePlus, LoaderCircle, Send, Sparkles, User, X } from "lucide-react"
@@ -23,10 +24,6 @@ type ChatMessage = {
   imageName?: string
   vision?: VisionResult
 }
-
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
-const MAX_IMAGE_SIDE = 768
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 const VISION_LABELS: Record<VisionResult["imageType"], string> = {
   furniture_project: "Proyecto o mueble",
@@ -49,36 +46,6 @@ function visionLabel(vision: VisionResult) {
     return VISION_PRESENTATION_LABELS[vision.imagePresentation]
   }
   return VISION_LABELS[vision.imageType]
-}
-
-async function prepareImage(file: File): Promise<AdvisorImage> {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    throw new Error("La foto debe estar en formato JPG, PNG o WEBP.")
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error("La foto no puede superar los 10 MB.")
-  }
-
-  const bitmap = await createImageBitmap(file)
-  try {
-    if (bitmap.width < 32 || bitmap.height < 32) {
-      throw new Error("La foto es demasiado pequeña para poder analizarla.")
-    }
-    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
-    const width = Math.max(1, Math.round(bitmap.width * scale))
-    const height = Math.max(1, Math.round(bitmap.height * scale))
-    const canvas = document.createElement("canvas")
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext("2d")
-    if (!context) throw new Error("El navegador no pudo preparar la foto.")
-    context.fillStyle = "#ffffff"
-    context.fillRect(0, 0, width, height)
-    context.drawImage(bitmap, 0, 0, width, height)
-    return { name: file.name, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }
-  } finally {
-    bitmap.close()
-  }
 }
 
 const SUGGESTIONS = [
@@ -157,7 +124,7 @@ export default function AsistentePage() {
     if (!file) return
     setImageError("")
     try {
-      setSelectedImage(await prepareImage(file))
+      setSelectedImage(await prepareAdvisorImage(file))
     } catch (error) {
       setSelectedImage(null)
       setImageError(error instanceof Error ? error.message : "No fue posible preparar la foto.")

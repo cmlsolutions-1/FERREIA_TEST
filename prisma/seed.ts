@@ -4,7 +4,6 @@ import { initialProductMaster, initialWarehouses } from "../lib/product-master"
 import { initialPromotions } from "../lib/promotions"
 import { INITIAL_ORDERS } from "../lib/orders"
 import { initialShippingSettings } from "../lib/shipping"
-import { initialMercadoPagoPayments } from "../lib/mercado-pago"
 import { hashPassword } from "../server/shared/password"
 
 const prisma = new PrismaClient()
@@ -130,22 +129,6 @@ async function main() {
     zones: { create: shipping.zones.map((zone) => ({ ...zone })) },
   } })
 
-  const existingOrderIds = new Set((await prisma.order.findMany({ select: { id: true } })).map((order) => order.id))
-  for (const payment of initialMercadoPagoPayments) {
-    await prisma.payment.upsert({ where: { id: payment.id }, update: {}, create: {
-      id: payment.id, orderId: existingOrderIds.has(payment.orderId) ? payment.orderId : null,
-      externalReference: payment.externalReference, status: payment.status, statusDetail: payment.statusDetail,
-      amount: payment.amount, refundedAmount: payment.refundedAmount, marketplaceFee: payment.marketplaceFee,
-      financingFee: payment.financingFee, taxOnFee: payment.taxOnFee, netReceived: payment.netReceived,
-      paymentMethod: payment.paymentMethod, paymentType: payment.paymentType, installments: payment.installments,
-      cardLastFour: payment.cardLastFour, statementDescriptor: payment.statementDescriptor,
-      operationType: payment.operationType, moneyReleaseDate: payment.moneyReleaseDate ? dateOnly(payment.moneyReleaseDate) : null,
-      liveMode: payment.liveMode, customerName: payment.customer.name, customerEmail: payment.customer.email,
-      customerDocument: payment.customer.document, webhookLastEvent: payment.webhook.lastEvent,
-      webhookReceivedAt: new Date(payment.webhook.receivedAt), webhookValid: payment.webhook.signatureValid,
-      createdAt: new Date(payment.createdAt), approvedAt: payment.approvedAt ? new Date(payment.approvedAt) : null,
-    } })
-  }
   console.log("Seed TooList completado")
 }
 

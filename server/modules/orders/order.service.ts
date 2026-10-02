@@ -64,9 +64,10 @@ export const orderService = {
       const shippingCost = free ? 0 : (method ? n(method.baseCost) : 0) + (zone ? n(zone.surcharge) : 0)
       const now = new Date()
       const eta = (days: number) => new Date(now.getTime() + days * 86400000)
-      await tx.order.create({ data: { id, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en FERREIA", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "TooList recibió la compra y descontó las unidades del inventario.", location: "TooList · Bogotá", occurredAt: now }] } } })
+      await tx.order.create({ data: { id, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en TooList", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "TooList recibió la compra y descontó las unidades del inventario.", location: "FERREIA · Bogotá", occurredAt: now }] } } })
     })
     const order = await this.get(id)
+    if (order.paymentMethod === "Mercado Pago") return order
     const notification = await sendOrderCreatedEmail(order)
     return { ...order, notification }
   },

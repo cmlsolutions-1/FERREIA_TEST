@@ -44,7 +44,7 @@ export function OrderTrackingPanel({ order }: { order: FerreiaOrder }) {
       <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
         <Card>
           <CardContent className="p-5">
-            <div className="mb-5 flex items-center gap-2"><Clock3 className="h-5 w-5 text-accent" /><div><h3 className="font-bold">Historial del envío</h3><p className="text-xs text-muted-foreground">Actualizaciones registradas por FERREIA</p></div></div>
+            <div className="mb-5 flex items-center gap-2"><Clock3 className="h-5 w-5 text-accent" /><div><h3 className="font-bold">Historial del envío</h3><p className="text-xs text-muted-foreground">Actualizaciones registradas por TooList</p></div></div>
             <div className="space-y-0">
               {[...order.timeline].reverse().map((item, index, list) => (
                 <div key={item.id} className="grid grid-cols-[28px_1fr] gap-3">

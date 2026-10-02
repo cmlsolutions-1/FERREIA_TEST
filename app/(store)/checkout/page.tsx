@@ -16,9 +16,22 @@ import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { useShippingSettings } from "@/components/use-shipping-settings"
 import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
+import { createMercadoPagoCheckout } from "@/services/payments.service"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
+type PendingPaymentOrder = { id: string; email: string }
 const emptyForm: CustomerForm = { name: "", document: "", email: "", phone: "", address: "", city: "", department: "" }
+
+function readPendingPaymentOrder() {
+  try {
+    const value = window.sessionStorage.getItem("ferreia-mercadopago-order")
+    if (!value) return null
+    const stored = JSON.parse(value) as { orderId?: unknown; email?: unknown }
+    return typeof stored.orderId === "string" && typeof stored.email === "string"
+      ? { id: stored.orderId, email: stored.email }
+      : null
+  } catch { return null }
+}
 
 export default function CheckoutPage() {
   const { lines, subtotal, count, clear } = useCart()
@@ -26,16 +39,23 @@ export default function CheckoutPage() {
   const { createOrder } = useOrders()
   const shippingSettings = useShippingSettings()
   const [shipping, setShipping] = useState<"estandar" | "express">("estandar")
-  const [payment, setPayment] = useState<"tarjeta" | "pse" | "contraentrega">("tarjeta")
+  const [payment, setPayment] = useState<"mercadopago" | "contraentrega">("mercadopago")
   const [form, setForm] = useState<CustomerForm>(emptyForm)
   const [completedOrder, setCompletedOrder] = useState<FerreiaOrder | null>(null)
   const [error, setError] = useState("")
   const [processing, setProcessing] = useState(false)
+  const [pendingPaymentOrder, setPendingPaymentOrder] = useState<PendingPaymentOrder | null>(null)
+  const [pendingPaymentLoaded, setPendingPaymentLoaded] = useState(false)
   const submissionLocked = useRef(false)
 
   useEffect(() => {
     if (user) setForm((current) => ({ ...current, name: user.name, document: user.document, email: user.email, phone: user.phone }))
   }, [user])
+
+  useEffect(() => {
+    setPendingPaymentOrder(readPendingPaymentOrder())
+    setPendingPaymentLoaded(true)
+  }, [])
 
   useEffect(() => {
     if (!shippingSettings.standard.active && shippingSettings.express.active) setShipping("express")
@@ -54,6 +74,12 @@ export default function CheckoutPage() {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
+  async function redirectToMercadoPago(order: PendingPaymentOrder) {
+    window.sessionStorage.setItem("ferreia-mercadopago-order", JSON.stringify({ orderId: order.id, email: order.email }))
+    const checkout = await createMercadoPagoCheckout(order.id, order.email)
+    window.location.assign(checkout.data.checkoutUrl)
+  }
+
   async function confirmOrder(event: React.FormEvent) {
     event.preventDefault()
     if (!form.department) { setError("Selecciona el departamento de entrega."); return }
@@ -61,6 +87,17 @@ export default function CheckoutPage() {
     if (submissionLocked.current) return
     submissionLocked.current = true
     setProcessing(true)
+    if (pendingPaymentOrder && payment === "mercadopago") {
+      try {
+        await redirectToMercadoPago(pendingPaymentOrder)
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "No fue posible iniciar el pago con Mercado Pago.")
+        submissionLocked.current = false
+        setProcessing(false)
+      }
+      return
+    }
+
     const paymentStatus: PaymentStatus = payment === "contraentrega" ? "Contra entrega" : "Pendiente"
     const result = await createOrder({
       customerId: user?.id ?? null,
@@ -74,7 +111,7 @@ export default function CheckoutPage() {
       tax,
       shippingCost,
       total,
-      paymentMethod: payment === "tarjeta" ? "Tarjeta" : payment === "pse" ? "PSE" : "Contra entrega",
+      paymentMethod: payment === "mercadopago" ? "Mercado Pago" : "Contra entrega",
       paymentStatus,
       shippingMethod: shipping === "express" ? "Express" : "Estándar",
       address: form.address.trim(),
@@ -88,6 +125,18 @@ export default function CheckoutPage() {
       return
     }
     setError("")
+    if (payment === "mercadopago") {
+      const pendingOrder = { id: result.order.id, email: result.order.email }
+      setPendingPaymentOrder(pendingOrder)
+      try {
+        await redirectToMercadoPago(pendingOrder)
+      } catch (cause) {
+        setError(cause instanceof Error ? `${cause.message} El pedido ${result.order.id} ya fue creado; puedes reintentar el pago sin duplicarlo.` : "No fue posible iniciar el pago con Mercado Pago.")
+        submissionLocked.current = false
+        setProcessing(false)
+      }
+      return
+    }
     setCompletedOrder(result.order)
     clear()
   }
@@ -95,6 +144,10 @@ export default function CheckoutPage() {
   if (completedOrder) {
     return <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50"><CheckCircle2 className="h-12 w-12 text-emerald-600" /></span><p className="mt-5 text-sm font-bold uppercase tracking-widest text-accent">Compra completada</p><h1 className="mt-1 text-3xl font-black text-primary">¡Pedido confirmado!</h1><p className="mt-3 max-w-xl text-muted-foreground">Tu pedido <b className="text-foreground">{completedOrder.id}</b> fue registrado y las unidades ya se descontaron del inventario. La entrega está estimada entre <b>{completedOrder.estimatedFrom}</b> y <b>{completedOrder.estimatedTo}</b>.</p>{completedOrder.notification && <p role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${completedOrder.notification.sent ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{completedOrder.notification.sent ? `Enviamos la confirmación y el detalle del pedido a ${completedOrder.email}.` : "El pedido quedó confirmado, pero no fue posible enviar el correo. Puedes consultarlo con el número mostrado aquí."}</p>}<div className="mt-7 flex flex-wrap justify-center gap-3"><Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90"><Link href={`/rastrear-pedido?pedido=${completedOrder.id}`}><PackageSearch className="mr-2 h-4 w-4" />Rastrear mi pedido</Link></Button>{user && <Button asChild variant="outline"><Link href="/mi-cuenta">Ver mis pedidos</Link></Button>}<Button asChild variant="ghost"><Link href="/catalogo">Seguir comprando</Link></Button></div>{!user && <p className="mt-5 text-xs text-muted-foreground">Guarda el número del pedido. Para consultarlo necesitarás también el correo <b>{completedOrder.email}</b>.</p>}</div>
   }
+
+  if (!pendingPaymentLoaded) return null
+
+  if (pendingPaymentOrder) return <div className="mx-auto max-w-xl px-4 py-24 text-center"><CreditCard className="mx-auto h-12 w-12 text-sky-600" /><h1 className="mt-4 text-2xl font-bold text-primary">Tienes un pedido pendiente de pago</h1><p className="mt-2 text-muted-foreground">El pedido <b>{pendingPaymentOrder.id}</b> ya está guardado. Puedes volver a abrir Mercado Pago sin crear un pedido nuevo.</p>{error && <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<div className="mt-6 flex flex-wrap justify-center gap-3"><Button disabled={processing} onClick={() => { setProcessing(true); void redirectToMercadoPago(pendingPaymentOrder).catch((cause) => { setError(cause instanceof Error ? cause.message : "No fue posible iniciar el pago con Mercado Pago."); setProcessing(false) }) }} className="bg-sky-600 text-white hover:bg-sky-700">{processing ? "Abriendo Mercado Pago..." : "Reintentar pago"}</Button><Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(pendingPaymentOrder.id)}`}>Consultar pedido</Link></Button></div></div>
 
   if (count === 0) return <div className="mx-auto max-w-xl px-4 py-24 text-center"><h1 className="text-2xl font-bold text-primary">No hay productos en el carrito</h1><Button asChild className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90"><Link href="/catalogo">Ir al catálogo</Link></Button></div>
 
@@ -104,9 +157,9 @@ export default function CheckoutPage() {
       <Section title="Datos del cliente" icon={Building2}><div className="grid gap-4 sm:grid-cols-2"><Field label="Nombre completo" required><Input required value={form.name} onChange={(event) => update("name", event.target.value)} placeholder="Juan Pérez" /></Field><Field label="Documento (CC / NIT)" required><Input required value={form.document} onChange={(event) => update("document", event.target.value)} placeholder="1234567890" /></Field><Field label="Correo electrónico" required><Input required type="email" value={form.email} onChange={(event) => update("email", event.target.value)} placeholder="correo@ejemplo.com" /></Field><Field label="Teléfono" required><Input required value={form.phone} onChange={(event) => update("phone", event.target.value)} placeholder="+57 300 000 0000" /></Field></div></Section>
       <Section title="Dirección de envío" icon={Truck}><div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Field label="Dirección" required><Input required value={form.address} onChange={(event) => update("address", event.target.value)} placeholder="Cra. 10 #20-30, Apto 401" /></Field></div><Field label="Ciudad" required><Input required value={form.city} onChange={(event) => update("city", event.target.value)} placeholder="Bogotá" /></Field><Field label="Departamento" required><Select required value={form.department} onValueChange={(value) => value && update("department", value)}><SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger><SelectContent>{DEPARTAMENTOS.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}</SelectContent></Select></Field></div></Section>
       <Section title="Método de envío" icon={Package}>{shippingSettings.enabled ? <><div className="grid gap-3 sm:grid-cols-2">{shippingSettings.standard.active && <OptionCard active={shipping === "estandar"} onClick={() => setShipping("estandar")} title={`Estándar (${shippingSettings.standard.minDays}-${shippingSettings.standard.maxDays} días)`} desc={!standardQuote.available ? "No disponible" : standardQuote.free ? "Gratis" : formatCOP(standardQuote.cost)} />}{shippingSettings.express.active && <OptionCard active={shipping === "express"} onClick={() => setShipping("express")} title={`Express (${shippingSettings.express.minDays}-${shippingSettings.express.maxDays} días)`} desc={!expressQuote.available ? "No disponible" : expressQuote.free ? "Gratis" : formatCOP(expressQuote.cost)} />}</div><div className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{!shippingSettings.standard.active && !shippingSettings.express.active ? "No hay métodos de envío activos." : form.department && !selectedQuote.zone ? `No contamos con cobertura para ${form.department}.` : form.department ? `Tarifa para ${form.department} · ${selectedQuote.zone?.name}.` : "Selecciona el departamento para confirmar la tarifa exacta."}{selectedQuote.available && !selectedQuote.free && selectedQuote.method.freeShippingEligible && shippingSettings.freeShipping.enabled && <span> {shippingSettings.freeShipping.mode === "all" ? "Condiciones pendientes:" : "Envío gratis al cumplir una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</span>}</div></> : <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Los envíos se encuentran temporalmente deshabilitados.</p>}</Section>
-      <Section title="Método de pago" icon={CreditCard}><div className="grid gap-3 sm:grid-cols-3"><OptionCard active={payment === "tarjeta"} onClick={() => setPayment("tarjeta")} title="Tarjeta" desc="Crédito / débito" icon={CreditCard} /><OptionCard active={payment === "pse"} onClick={() => setPayment("pse")} title="PSE" desc="Débito bancario" icon={Building2} /><OptionCard active={payment === "contraentrega"} onClick={() => setPayment("contraentrega")} title="Contra entrega" desc="Paga al recibir" icon={Banknote} /></div>{payment === "tarjeta" && <div className="mt-4 grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><Field label="Número de tarjeta"><Input placeholder="0000 0000 0000 0000" /></Field></div><Field label="Vencimiento"><Input placeholder="MM/AA" /></Field><Field label="CVV"><Input placeholder="123" /></Field></div>}</Section>
+      <Section title="Método de pago" icon={CreditCard}><div className="grid gap-3 sm:grid-cols-2"><OptionCard active={payment === "mercadopago"} onClick={() => setPayment("mercadopago")} title="Mercado Pago" desc="Tarjetas, PSE y saldo disponible" icon={CreditCard} /><OptionCard active={payment === "contraentrega"} onClick={() => setPayment("contraentrega")} title="Contra entrega" desc="Paga al recibir" icon={Banknote} /></div>{payment === "mercadopago" && <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900"><p className="font-semibold">Pago protegido por Mercado Pago</p><p className="mt-1 text-xs text-sky-800">Al confirmar serás dirigido al checkout seguro para elegir tarjeta, PSE u otro medio disponible. FERREIA no almacena los datos de tu tarjeta.</p></div>}</Section>
     </div>
-      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div><dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={!selectedQuote.available ? "No disponible" : shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing || !selectedQuote.available} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? "Creando pedido..." : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">Al confirmar, las unidades se descuentan del inventario.</p></aside>
+      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div><dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={!selectedQuote.available ? "No disponible" : shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing || !selectedQuote.available} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? payment === "mercadopago" ? "Abriendo Mercado Pago..." : "Creando pedido..." : payment === "mercadopago" ? "Pagar con Mercado Pago" : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">{payment === "mercadopago" ? "El estado del pago se actualizará automáticamente en tu pedido." : "Al confirmar, las unidades se descuentan del inventario."}</p></aside>
     </form>
   </div>
 }

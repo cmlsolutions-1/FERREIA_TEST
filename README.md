@@ -20,6 +20,33 @@ Copy-Item .env.example .env
 
 Completa en `.env` las variables de PostgreSQL, administrador y Gmail. El puerto de `DATABASE_URL` debe coincidir con `POSTGRES_PORT`.
 
+Para probar pagos configura las credenciales de prueba de Mercado Pago y conserva el ambiente sandbox:
+
+```env
+MERCADOPAGO_ACCESS_TOKEN=
+NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY=
+MERCADOPAGO_WEBHOOK_SECRET=
+MERCADOPAGO_ENVIRONMENT=sandbox
+```
+
+`MERCADOPAGO_WEBHOOK_SECRET` se obtiene en **Tus integraciones → Webhooks**. Mercado Pago no puede llamar URLs `localhost`: para probar el retorno automático y el Webhook, `NEXT_PUBLIC_APP_URL` debe ser una URL HTTPS pública del despliegue o de un túnel local. Sin URL pública el checkout sandbox funciona y el administrador puede traer el resultado con **Pagos → Sincronizar Mercado Pago**.
+
+En sandbox, inicia la compra en una ventana de incógnito y entra a Mercado Pago con una **cuenta compradora de prueba**. Debe ser distinta de la cuenta vendedora asociada al access token y ambas deben pertenecer a Colombia. No uses una cuenta real: Mercado Pago bloquea las operaciones que mezclan usuarios reales y de prueba. El carrito se conserva mientras el pago esté pendiente y solo se limpia cuando Mercado Pago confirma la aprobación.
+
+Si vas a usar FerreBot, instala Ollama. Inicia el servicio en una terminal:
+
+```bash
+ollama serve
+```
+
+En otra terminal descarga el modelo indicado en `OLLAMA_MODEL`:
+
+```bash
+ollama pull <modelo-configurado-en-OLLAMA_MODEL>
+```
+
+Cuando Next.js corre con `npm run dev`, `OLLAMA_BASE_URL` normalmente es `http://127.0.0.1:11434`. Si Next.js corre dentro de Docker y Ollama está instalado en el equipo anfitrión, usa `http://host.docker.internal:11434`.
+
 ### 2. Instalar las dependencias
 
 ```bash

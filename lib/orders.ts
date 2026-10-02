@@ -27,7 +27,7 @@ export const CARRIERS = [
 ] as const
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
-export type PaymentStatus = "Pendiente" | "Pagado" | "Contra entrega" | "Reembolsado"
+export type PaymentStatus = "Pendiente" | "Pagado" | "Contra entrega" | "Reembolsado" | "Rechazado"
 export type ShippingMethod = "Estándar" | "Express"
 
 export type OrderItem = {
@@ -177,7 +177,7 @@ export const INITIAL_ORDERS: FerreiaOrder[] = [
     trackingNumber: "",
     estimatedFrom: "2026-09-18",
     estimatedTo: "2026-09-20",
-    currentLocation: "Pedido recibido en FERREIA",
+    currentLocation: "Pedido recibido en TooList",
     status: "Pedido confirmado",
     events: [event("EV-10235-1", "Pedido confirmado", "Pedido recibido", "Estamos validando los datos de la compra.", "TooList · Bogotá", dateAt(14, 9))],
   }),

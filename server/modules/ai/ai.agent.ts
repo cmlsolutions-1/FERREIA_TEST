@@ -4,6 +4,7 @@ import { aiConfig } from "@/server/modules/ai/ai.config"
 import { evaluateAiBusinessPolicy } from "@/server/modules/ai/ai.policy"
 import { aiProvider } from "@/server/modules/ai/ai.provider"
 import { aiVision } from "@/server/modules/ai/ai.vision"
+import type { SpellingResolution } from "@/server/modules/ai/ai.spelling"
 import {
   imageAnalysisSchema,
   projectAnalysisSchema,
@@ -29,6 +30,7 @@ Reglas obligatorias:
 
 const placeholder = /^(n\/?a|no aplica|ninguno|ninguna|sin nombre|no especificad[oa]|sin especificar|desconocid[oa]|por definir|null|undefined|-+)$/i
 const budgetQuestion = /\b(presupuesto|rango de precios?|cu[aá]nto (?:quiere|puede) gastar|dinero disponible)\b/i
+const manualAction = /\b(construir|fabricar|hacer|armar|ensamblar|crear)\b/i
 const normalizeLabel = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
 
 const formatCop = (value: number) => new Intl.NumberFormat("es-CO", {
@@ -40,6 +42,15 @@ const formatCop = (value: number) => new Intl.NumberFormat("es-CO", {
 const unique = (values: string[]) => [...new Set(values
   .map((value) => value.trim())
   .filter((value) => value.length > 0 && !placeholder.test(value)))]
+
+function withSpellingNotice(response: ProjectAdvisorResponse, spelling: SpellingResolution) {
+  if (spelling.corrections.length === 0) return response
+  const interpretations = spelling.corrections.map(({ original, corrected }) => `“${original}” como “${corrected}”`)
+  const notice = spelling.corrections.length === 1
+    ? `¿Quizás quisiste decir “${spelling.corrections[0].corrected}” en lugar de “${spelling.corrections[0].original}”? Interpreté tu solicitud de esa manera.`
+    : `Interpreté ${interpretations.join(" y ")} para buscar en el catálogo.`
+  return projectAdvisorResponseSchema.parse({ ...response, assistantMessage: `${notice} ${response.assistantMessage}` })
+}
 
 function enrichKnownSpecifications(
   specifications: z.infer<typeof projectAnalysisSchema>["knownSpecifications"],
@@ -203,11 +214,17 @@ function projectAnalysisFromImage(
     ? [{ name: "material visible estimado", value: analysis.materialsObserved.join(", ") }]
     : []
 
+  const visualSearchTerms = unique([
+    analysis.detectedObject,
+    ...analysis.visibleText,
+    ...analysis.searchTerms,
+  ]).slice(0, 8)
+
   return projectAnalysisSchema.parse({
     intent: analysis.intent,
     normalizedRequest: currentMessage,
     projectName: analysis.detectedObject,
-    searchTerms: unique([analysis.detectedObject, ...analysis.searchTerms]),
+    searchTerms: visualSearchTerms,
     knownSpecifications,
     missingSpecifications: analysis.missingSpecifications,
     shouldSearchCatalog: analysis.shouldSearchCatalog,
@@ -243,29 +260,31 @@ function unclearImageResponse(
 export const aiAgent = {
   async advise(input: AdvisorRequest): Promise<ProjectAdvisorResponse> {
     const currentMessage = input.message || "Analiza esta imagen y busca productos relacionados."
-    const policy = evaluateAiBusinessPolicy(currentMessage)
-    if (!policy.allowed) return blockedByPolicy(policy.message, policy.subject, policy.searchTerms)
+    const spelling = await aiCatalog.correctSpelling(currentMessage)
+    const interpretedMessage = spelling.message
+    const policy = evaluateAiBusinessPolicy(interpretedMessage)
+    if (!policy.allowed) return withSpellingNotice(await blockedByPolicy(policy.message, policy.subject, policy.searchTerms), spelling)
 
     if (input.image) {
-      const { data, model } = await aiVision.analyze(currentMessage, input.image.dataUrl)
+      const { data, model } = await aiVision.analyze(interpretedMessage, input.image.dataUrl)
       const supportedPresentation = ["photo", "product_render", "technical_drawing"].includes(data.imagePresentation)
       if (!supportedPresentation || !data.containsRelevantObject || data.imageType === "other" || data.imageType === "uncertain" || data.confidence < 0.35) {
-        return unclearImageResponse(data, model || aiConfig.model)
+        return withSpellingNotice(unclearImageResponse(data, model || aiConfig.model), spelling)
       }
 
-      const imageProjectAnalysis = projectAnalysisFromImage(data, currentMessage)
+      const imageProjectAnalysis = projectAnalysisFromImage(data, interpretedMessage)
       const catalogTerms = unique(imageProjectAnalysis.searchTerms)
       const enrichedData = { ...imageProjectAnalysis, searchTerms: catalogTerms }
       const products = imageProjectAnalysis.shouldSearchCatalog
         ? await aiCatalog.search(catalogTerms)
         : []
-      return responseFromAnalysis(
+      return withSpellingNotice(responseFromAnalysis(
         enrichedData,
         model || aiConfig.model,
         products,
-        currentMessage,
+        interpretedMessage,
         visionMetadata(data),
-      )
+      ), spelling)
     }
 
     const schema = z.toJSONSchema(projectAnalysisSchema)
@@ -274,15 +293,25 @@ export const aiAgent = {
       ...input.history.map(({ role, content }) => ({ role, content })),
       {
         role: "user",
-        content: `Usa el contexto anterior cuando corresponda y analiza la solicitud actual. Esquema requerido: ${JSON.stringify(schema)}\nSolicitud actual: ${input.message}`,
+        content: `Usa el contexto anterior cuando corresponda y analiza la solicitud actual. Esquema requerido: ${JSON.stringify(schema)}\nSolicitud original: ${input.message}\nSolicitud interpretada con vocabulario del catálogo: ${interpretedMessage}`,
       },
     ], projectAnalysisSchema)
 
-    const catalogTerms = data.intent === "manual_project" && !placeholder.test(data.projectName)
+    const correctedTerms = spelling.corrections.map(({ corrected }) => corrected)
+    const modelTerms = data.intent === "manual_project" && !placeholder.test(data.projectName)
       ? unique([data.projectName, ...data.searchTerms])
       : unique(data.searchTerms)
-    const enrichedData = { ...data, searchTerms: catalogTerms }
-    const products = data.shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
-    return responseFromAnalysis(enrichedData, model || aiConfig.model, products, currentMessage)
+    const catalogTerms = unique([...correctedTerms, ...modelTerms])
+    const shouldSearchCatalog = data.shouldSearchCatalog || catalogTerms.length > 0
+    const products = shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
+    const directProduct = products.find((product) => product.matchType === "direct")
+    const directProductRequest = Boolean(directProduct) && !manualAction.test(interpretedMessage)
+    const responseProducts = directProductRequest
+      ? products.filter((product) => product.matchType === "direct" || product.category === directProduct!.category)
+      : products
+    const enrichedData = directProductRequest
+      ? { ...data, intent: "finished_product_search" as const, projectName: correctedTerms[0] ?? directProduct!.name, searchTerms: catalogTerms, missingSpecifications: [], shouldSearchCatalog: true }
+      : { ...data, searchTerms: catalogTerms, shouldSearchCatalog }
+    return withSpellingNotice(responseFromAnalysis(enrichedData, model || aiConfig.model, responseProducts, interpretedMessage), spelling)
   },
 }

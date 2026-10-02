@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client"
 import { productRepository } from "@/server/modules/products/product.repository"
 import { productToDto, publicProduct } from "@/server/modules/products/product.service"
 import type { CatalogProduct } from "@/server/modules/ai/ai.schema"
+import { resolveCatalogSpelling } from "@/server/modules/ai/ai.spelling"
 
 const STOP_WORDS = new Set([
   "para", "con", "una", "uno", "unos", "unas", "del", "las", "los", "por", "que", "quiero",
@@ -24,6 +25,10 @@ function tokensFrom(terms: string[]) {
 function searchableFields(token: string): Prisma.ProductWhereInput[] {
   const contains = { contains: token, mode: "insensitive" as const }
   return [
+    { sku: contains },
+    { reference: contains },
+    { supplierReference: contains },
+    { barcodes: { some: { code: contains } } },
     { name: contains },
     { description: contains },
     { characteristics: contains },
@@ -41,6 +46,12 @@ function searchableFields(token: string): Prisma.ProductWhereInput[] {
 }
 
 function relevanceScore(product: ReturnType<typeof productToDto>, tokens: string[], phrases: string[]) {
+  const identifiers = normalize([
+    product.sku,
+    product.reference,
+    product.supplierReference,
+    ...product.barcodes.map(({ code }) => code),
+  ].join(" "))
   const name = normalize(product.name)
   const subcategory = normalize(product.subcategory)
   const category = normalize(`${product.category} ${product.categoryName}`)
@@ -53,6 +64,7 @@ function relevanceScore(product: ReturnType<typeof productToDto>, tokens: string
 
   let score = 0
   for (const token of tokens) {
+    if (identifiers.includes(token)) score += 30
     if (name.includes(token)) score += 12
     if (subcategory.includes(token)) score += 8
     if (category.includes(token)) score += 6
@@ -66,13 +78,35 @@ function relevanceScore(product: ReturnType<typeof productToDto>, tokens: string
   return score
 }
 
-function directProductMatch(name: string, terms: string[]) {
-  const normalizedName = normalize(name)
+function directProductMatch(product: ReturnType<typeof productToDto>, terms: string[]) {
+  const normalizedName = normalize(product.name)
+  const identifiers = [
+    product.sku,
+    product.reference,
+    product.supplierReference,
+    ...product.barcodes.map(({ code }) => code),
+  ].map(normalize).filter((identifier) => identifier.length >= 4)
+  const normalizedTerms = terms.map(normalize)
+  if (identifiers.some((identifier) => normalizedTerms.some((term) => term.includes(identifier)))) return true
   const targetTokens = terms.flatMap((term) => tokensFrom([term]).slice(0, 1))
   return targetTokens.some((token) => normalizedName === token || normalizedName.startsWith(`${token} `))
 }
 
 export const aiCatalog = {
+  async correctSpelling(message: string) {
+    const products = await productRepository.spellingTerms()
+    const vocabulary = products.flatMap((product) => [
+      product.name,
+      product.subcategory,
+      product.line,
+      product.group,
+      product.subgroup,
+      product.material ?? "",
+      product.category.name,
+      product.brand.name,
+    ])
+    return resolveCatalogSpelling(message, vocabulary)
+  },
   async search(terms: string[], limit = 6): Promise<CatalogProduct[]> {
     const tokens = tokensFrom(terms)
     if (tokens.length === 0) return []
@@ -102,7 +136,7 @@ export const aiCatalog = {
             price: publicDto.price,
             stock: publicDto.stock,
             image: publicDto.image,
-            matchType: directProductMatch(publicDto.name, terms) ? "direct" as const : "related" as const,
+            matchType: directProductMatch(dto, terms) ? "direct" as const : "related" as const,
           },
         }
       })
