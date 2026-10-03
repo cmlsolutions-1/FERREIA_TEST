@@ -57,7 +57,7 @@ El servicio `app` espera el healthcheck `pg_isready`, aplica las migraciones con
 | Envíos | `GET, PUT /api/shipping` | Lectura pública; escritura admin |
 | Pedidos | `GET, POST /api/orders`; `GET, PATCH /api/orders/:id`; `GET /api/orders/mine` | Crear público; listados y cambios con sesión; consulta invitado por número y correo |
 | Compras | `GET, POST /api/purchase-orders`; `GET, PUT /api/purchase-orders/:id`; `POST /api/purchase-orders/:id/invoice` | Admin |
-| Pagos | `GET /api/payments`; `GET /api/payments/:id` | Admin, solo lectura |
+| Pagos | `GET /api/payments`; `GET /api/payments/:id`; `POST /api/payments/checkout`; `POST /api/payments/order-status`; `POST /api/payments/sync`; `POST /api/payments/reconcile`; `POST /api/payments/webhook` | Listado y conciliación global: admin; checkout y consulta de un pedido: ID y correo del pedido; webhook: Mercado Pago |
 | Sesiones | `GET, POST, DELETE /api/auth/admin`; `GET, POST, PUT, DELETE /api/auth/customer` | Según sesión |
 | Clientes | `GET, POST /api/customers` | Admin; directorio de cuentas y clientes CRM, con compras calculadas desde pedidos |
 | Reportes | `GET /api/reports/summary`; `GET /api/reports/export/:kind` | Admin; indicadores consolidados y exportaciones CSV de resumen, ventas, inventario y compras |

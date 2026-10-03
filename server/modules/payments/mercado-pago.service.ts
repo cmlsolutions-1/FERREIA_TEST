@@ -17,6 +17,8 @@ export const synchronizePaymentSchema = z.object({
   paymentId: z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d+$/)),
 }).strict()
 
+export const orderPaymentStatusSchema = checkoutPreferenceSchema
+
 function accessToken() {
   const value = process.env.MERCADOPAGO_ACCESS_TOKEN?.trim()
   if (!value) throw new ApiError(503, "MERCADOPAGO_NOT_CONFIGURED", "Mercado Pago no está configurado")
@@ -194,7 +196,8 @@ export const mercadoPagoService = {
       throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido para iniciar el pago")
     }
     if (order.paymentMethod === "Contra entrega") throw new ApiError(409, "PAYMENT_METHOD_INVALID", "Este pedido utiliza pago contra entrega")
-    if (order.paymentStatus === "Pagado") throw new ApiError(409, "ORDER_ALREADY_PAID", "Este pedido ya se encuentra pagado")
+    const currentPayment = await this.synchronizeOrder(orderId, email)
+    if (currentPayment.paymentStatus === "Pagado") throw new ApiError(409, "ORDER_ALREADY_PAID", "Este pedido ya se encuentra pagado")
 
     const appUrl = applicationUrl()
     const resultUrl = new URL("/checkout/resultado", appUrl)
@@ -240,9 +243,9 @@ export const mercadoPagoService = {
         },
         requestOptions: { idempotencyKey: `ferreia-preference-${order.id}` },
       })
-      const checkoutUrl = environment() === "sandbox"
-        ? preference.sandbox_init_point ?? preference.init_point
-        : preference.init_point
+      // Checkout Pro usa init_point también con cuentas de prueba. La URL
+      // sandbox_init_point ya no permite completar el flujo de pago.
+      const checkoutUrl = preference.init_point
       if (!preference.id || !checkoutUrl) throw new Error("Preference response is missing id or checkout URL")
       return { preferenceId: preference.id, checkoutUrl, orderId: order.id, environment: environment() }
     } catch (error) {
@@ -260,6 +263,44 @@ export const mercadoPagoService = {
       if (error instanceof ApiError) throw error
       console.error("Mercado Pago payment synchronization failed", error instanceof Error ? { name: error.name, message: error.message } : { type: typeof error })
       throw new ApiError(502, "MERCADOPAGO_SYNC_FAILED", "No fue posible confirmar el estado del pago con Mercado Pago")
+    }
+  },
+
+  async synchronizeOrder(orderId: string, email: string) {
+    const order = await orderRepository.find(orderId)
+    if (!order || order.email.toLowerCase() !== email.trim().toLowerCase()) {
+      throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido")
+    }
+    if (order.paymentMethod !== "Mercado Pago") {
+      throw new ApiError(409, "PAYMENT_METHOD_INVALID", "Este pedido no utiliza Mercado Pago")
+    }
+    if (order.paymentStatus === "Pagado") {
+      const payments = await paymentRepository.findRecentByOrder(orderId)
+      const approved = payments.find((payment) => payment.status === "approved")
+      return { orderId, paymentStatus: order.paymentStatus, paymentId: approved?.id ?? null, status: approved?.status ?? null }
+    }
+    try {
+      const response = await new Payment(client()).search({
+        options: { external_reference: orderId, sort: "date_created", criteria: "desc", limit: 20, offset: 0 },
+      })
+      for (const candidate of response.results ?? []) {
+        if (candidate.id && candidate.external_reference === orderId) {
+          await this.synchronize(String(candidate.id), "payment.order_status")
+        }
+      }
+      const updatedOrder = await orderRepository.find(orderId)
+      const payments = await paymentRepository.findRecentByOrder(orderId)
+      const relevantPayment = payments.find((payment) => payment.status === "approved") ?? payments[0]
+      return {
+        orderId,
+        paymentStatus: updatedOrder?.paymentStatus ?? order.paymentStatus,
+        paymentId: relevantPayment?.id ?? null,
+        status: relevantPayment?.status ?? null,
+      }
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      console.error("Mercado Pago order status failed", error instanceof Error ? { name: error.name, message: error.message } : { type: typeof error })
+      throw new ApiError(502, "MERCADOPAGO_SYNC_FAILED", "No fue posible consultar el estado del pago")
     }
   },
 

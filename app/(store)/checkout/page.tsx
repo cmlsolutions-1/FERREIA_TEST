@@ -16,7 +16,7 @@ import { calculateTieredPrice } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { useShippingSettings } from "@/components/use-shipping-settings"
 import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
-import { createMercadoPagoCheckout } from "@/services/payments.service"
+import { createMercadoPagoCheckout, getMercadoPagoOrderStatus } from "@/services/payments.service"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
 type PendingPaymentOrder = { id: string; email: string }
@@ -46,7 +46,9 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false)
   const [pendingPaymentOrder, setPendingPaymentOrder] = useState<PendingPaymentOrder | null>(null)
   const [pendingPaymentLoaded, setPendingPaymentLoaded] = useState(false)
+  const [checkingPayment, setCheckingPayment] = useState(false)
   const submissionLocked = useRef(false)
+  const paymentTab = useRef<Window | null>(null)
 
   useEffect(() => {
     if (user) setForm((current) => ({ ...current, name: user.name, document: user.document, email: user.email, phone: user.phone }))
@@ -56,6 +58,36 @@ export default function CheckoutPage() {
     setPendingPaymentOrder(readPendingPaymentOrder())
     setPendingPaymentLoaded(true)
   }, [])
+
+  useEffect(() => {
+    if (!pendingPaymentOrder) return
+    let active = true
+    let busy = false
+    async function checkPayment() {
+      if (busy || !pendingPaymentOrder) return
+      busy = true
+      setCheckingPayment(true)
+      try {
+        const result = await getMercadoPagoOrderStatus(pendingPaymentOrder.id, pendingPaymentOrder.email)
+        if (!active) return
+        if (result.data.paymentStatus === "Pagado" && result.data.paymentId) {
+          try { paymentTab.current?.close() } catch { /* La pestaña puede estar aislada por el navegador. */ }
+          window.location.assign(`/checkout/resultado?payment_id=${encodeURIComponent(result.data.paymentId)}`)
+        } else if (result.data.paymentStatus === "Rechazado") {
+          setProcessing(false)
+          setError("Mercado Pago no aprobó el pago. Puedes reintentarlo sin duplicar el pedido.")
+        }
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "No fue posible consultar el estado del pago.")
+      } finally {
+        busy = false
+        if (active) setCheckingPayment(false)
+      }
+    }
+    void checkPayment()
+    const interval = window.setInterval(() => void checkPayment(), 10_000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [pendingPaymentOrder])
 
   useEffect(() => {
     if (!shippingSettings.standard.active && shippingSettings.express.active) setShipping("express")
@@ -74,10 +106,39 @@ export default function CheckoutPage() {
     setForm((current) => ({ ...current, [key]: value }))
   }
 
-  async function redirectToMercadoPago(order: PendingPaymentOrder) {
+  function preparePaymentTab() {
+    if (!["localhost", "127.0.0.1"].includes(window.location.hostname)) return null
+    const tab = window.open("about:blank", "_blank")
+    if (!tab) throw new Error("Permite las ventanas emergentes para abrir Mercado Pago y conservar esta página.")
+    tab.opener = null
+    tab.document.title = "Preparando pago"
+    tab.document.body.textContent = "Preparando Mercado Pago..."
+    paymentTab.current = tab
+    return tab
+  }
+
+  async function redirectToMercadoPago(order: PendingPaymentOrder, tab: Window | null) {
     window.sessionStorage.setItem("ferreia-mercadopago-order", JSON.stringify({ orderId: order.id, email: order.email }))
     const checkout = await createMercadoPagoCheckout(order.id, order.email)
-    window.location.assign(checkout.data.checkoutUrl)
+    if (tab) {
+      if (tab.closed) throw new Error("La pestaña de Mercado Pago se cerró. Puedes reintentar el pago.")
+      tab.location.replace(checkout.data.checkoutUrl)
+    } else {
+      window.location.assign(checkout.data.checkoutUrl)
+    }
+  }
+
+  async function retryPendingPayment(order: PendingPaymentOrder) {
+    let tab: Window | null = null
+    try { tab = preparePaymentTab() } catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible abrir Mercado Pago."); return }
+    setProcessing(true)
+    setError("")
+    try { await redirectToMercadoPago(order, tab) }
+    catch (cause) {
+      tab?.close()
+      setError(cause instanceof Error ? cause.message : "No fue posible iniciar el pago con Mercado Pago.")
+      setProcessing(false)
+    }
   }
 
   async function confirmOrder(event: React.FormEvent) {
@@ -85,12 +146,18 @@ export default function CheckoutPage() {
     if (!form.department) { setError("Selecciona el departamento de entrega."); return }
     if (!selectedQuote.available) { setError("No hay un método de envío disponible para completar el pedido."); return }
     if (submissionLocked.current) return
+    let tab: Window | null = null
+    if (payment === "mercadopago") {
+      try { tab = preparePaymentTab() }
+      catch (cause) { setError(cause instanceof Error ? cause.message : "No fue posible abrir Mercado Pago."); return }
+    }
     submissionLocked.current = true
     setProcessing(true)
     if (pendingPaymentOrder && payment === "mercadopago") {
       try {
-        await redirectToMercadoPago(pendingPaymentOrder)
+        await redirectToMercadoPago(pendingPaymentOrder, tab)
       } catch (cause) {
+        tab?.close()
         setError(cause instanceof Error ? cause.message : "No fue posible iniciar el pago con Mercado Pago.")
         submissionLocked.current = false
         setProcessing(false)
@@ -119,6 +186,7 @@ export default function CheckoutPage() {
       department: form.department,
     })
     if (!result.order) {
+      tab?.close()
       setError(result.error ?? "No fue posible crear el pedido.")
       submissionLocked.current = false
       setProcessing(false)
@@ -129,8 +197,9 @@ export default function CheckoutPage() {
       const pendingOrder = { id: result.order.id, email: result.order.email }
       setPendingPaymentOrder(pendingOrder)
       try {
-        await redirectToMercadoPago(pendingOrder)
+        await redirectToMercadoPago(pendingOrder, tab)
       } catch (cause) {
+        tab?.close()
         setError(cause instanceof Error ? `${cause.message} El pedido ${result.order.id} ya fue creado; puedes reintentar el pago sin duplicarlo.` : "No fue posible iniciar el pago con Mercado Pago.")
         submissionLocked.current = false
         setProcessing(false)
@@ -147,7 +216,7 @@ export default function CheckoutPage() {
 
   if (!pendingPaymentLoaded) return null
 
-  if (pendingPaymentOrder) return <div className="mx-auto max-w-xl px-4 py-24 text-center"><CreditCard className="mx-auto h-12 w-12 text-sky-600" /><h1 className="mt-4 text-2xl font-bold text-primary">Tienes un pedido pendiente de pago</h1><p className="mt-2 text-muted-foreground">El pedido <b>{pendingPaymentOrder.id}</b> ya está guardado. Puedes volver a abrir Mercado Pago sin crear un pedido nuevo.</p>{error && <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<div className="mt-6 flex flex-wrap justify-center gap-3"><Button disabled={processing} onClick={() => { setProcessing(true); void redirectToMercadoPago(pendingPaymentOrder).catch((cause) => { setError(cause instanceof Error ? cause.message : "No fue posible iniciar el pago con Mercado Pago."); setProcessing(false) }) }} className="bg-sky-600 text-white hover:bg-sky-700">{processing ? "Abriendo Mercado Pago..." : "Reintentar pago"}</Button><Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(pendingPaymentOrder.id)}`}>Consultar pedido</Link></Button></div></div>
+  if (pendingPaymentOrder) return <div className="mx-auto max-w-xl px-4 py-24 text-center"><CreditCard className="mx-auto h-12 w-12 text-sky-600" /><h1 className="mt-4 text-2xl font-bold text-primary">Pedido en proceso de pago</h1><p className="mt-2 text-muted-foreground">El pedido <b>{pendingPaymentOrder.id}</b> ya está guardado. Mercado Pago se abre en otra pestaña; esta página verificará el pago y mostrará el resultado sin duplicar el pedido.</p><p role="status" className="mt-3 text-sm text-muted-foreground">{checkingPayment ? "Consultando el estado en Mercado Pago..." : "El estado se actualiza automáticamente cada 10 segundos."}</p>{error && <p className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<div className="mt-6 flex flex-wrap justify-center gap-3"><Button disabled={processing} onClick={() => void retryPendingPayment(pendingPaymentOrder)} className="bg-sky-600 text-white hover:bg-sky-700">{processing ? "Esperando confirmación..." : "Reintentar pago"}</Button><Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(pendingPaymentOrder.id)}`}>Consultar pedido</Link></Button></div></div>
 
   if (count === 0) return <div className="mx-auto max-w-xl px-4 py-24 text-center"><h1 className="text-2xl font-bold text-primary">No hay productos en el carrito</h1><Button asChild className="mt-6 bg-accent text-accent-foreground hover:bg-accent/90"><Link href="/catalogo">Ir al catálogo</Link></Button></div>
 

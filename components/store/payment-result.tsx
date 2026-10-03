@@ -46,7 +46,8 @@ export function PaymentResult({ requestedResult, paymentId, orderId }: { request
     return () => { active = false }
   }, [paymentId])
 
-  const status = payment?.status ?? (requestedResult === "success" ? "approved" : requestedResult === "failure" ? "rejected" : "pending")
+  // El parámetro de retorno no acredita un pago; solo la consulta al servidor puede hacerlo.
+  const status = payment?.status ?? (requestedResult === "failure" ? "rejected" : "pending")
   const resolvedOrderId = payment?.orderId || orderId || localOrderId
   const approved = status === "approved"
   const rejected = ["rejected", "cancelled"].includes(status)
