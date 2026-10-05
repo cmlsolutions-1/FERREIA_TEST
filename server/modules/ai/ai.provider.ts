@@ -13,14 +13,7 @@ const ollamaResponseSchema = z.object({
   message: z.object({ content: z.string() }),
 })
 
-let requestInProgress = false
-
 async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>): Promise<{ data: T; model: string }> {
-  if (requestInProgress) {
-    throw new ApiError(429, "AI_BUSY", "FerreBot está procesando otra consulta. Intenta nuevamente en unos segundos")
-  }
-
-  requestInProgress = true
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), aiConfig.timeoutMs)
 
@@ -45,6 +38,10 @@ async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>
     })
 
     if (!response.ok) {
+      console.error("Ollama request failed", { status: response.status })
+      if (response.status === 404) {
+        throw new ApiError(503, "AI_MODEL_NOT_FOUND", "El modelo de FerreBot no está instalado en el servidor")
+      }
       throw new ApiError(503, "AI_PROVIDER_ERROR", "Ollama no pudo procesar la consulta")
     }
 
@@ -68,7 +65,6 @@ async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>
     throw new ApiError(503, "AI_UNAVAILABLE", "Ollama no está disponible en este momento")
   } finally {
     clearTimeout(timeout)
-    requestInProgress = false
   }
 }
 

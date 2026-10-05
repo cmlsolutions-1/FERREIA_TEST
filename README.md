@@ -33,7 +33,9 @@ MERCADOPAGO_ENVIRONMENT=sandbox
 
 Para la compra de prueba, abre una ventana de incógnito e inicia sesión en Mercado Pago con una **cuenta compradora de prueba**. Debe ser distinta de la cuenta vendedora asociada al Access Token y ambas deben pertenecer a Colombia. Usa una tarjeta de prueba; no mezcles cuentas reales y de prueba. El carrito se conserva mientras el pago esté pendiente y solo se limpia cuando Mercado Pago confirma la aprobación.
 
-Si vas a usar FerreBot, instala Ollama. Inicia el servicio en una terminal:
+### FerreBot durante el desarrollo local
+
+Si ejecutas Next.js con `npm run dev`, FerreBot necesita un servidor Ollama accesible desde tu equipo. Puedes instalar Ollama localmente e iniciar el servicio:
 
 ```bash
 ollama serve
@@ -45,7 +47,28 @@ En otra terminal descarga el modelo indicado en `OLLAMA_MODEL`:
 ollama pull <modelo-configurado-en-OLLAMA_MODEL>
 ```
 
-Cuando Next.js corre con `npm run dev`, `OLLAMA_BASE_URL` normalmente es `http://127.0.0.1:11434`. Si Next.js corre dentro de Docker y Ollama está instalado en el equipo anfitrión, usa `http://host.docker.internal:11434`.
+Configura `OLLAMA_BASE_URL=http://127.0.0.1:11434` y `OLLAMA_MODEL=qwen2.5vl:3b` en `.env`. Si Next.js corre dentro de Docker y Ollama está instalado en el equipo anfitrión, usa `http://host.docker.internal:11434` en la configuración básica de Compose. Esa dirección no es la configuración recomendada para un VPS Linux.
+
+### FerreBot en un VPS con Docker
+
+En un VPS, Ollama debe ejecutarse **en el servidor o en un servicio de inferencia accesible desde él**. La instalación de Ollama en el computador del administrador no sirve a la aplicación desplegada. Para alojarlo en el mismo VPS, usa el archivo adicional `docker-compose.ai.yml`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ai.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.ai.yml ps
+docker compose -f docker-compose.yml -f docker-compose.ai.yml logs -f ollama-pull
+```
+
+Esta configuración levanta PostgreSQL, Next.js y Ollama en la red privada de Compose. Next.js se conecta a `http://ollama:11434`; el navegador solo llama a `/api/ai/project-advisor`. El puerto 11434 **no se publica en el VPS**. `ollama-pull` descarga el modelo indicado por `OLLAMA_MODEL` antes de iniciar la aplicación. La primera descarga necesita conexión a Internet y espacio en disco. Los archivos del modelo permanecen en el volumen `ollama_data` al reiniciar o recrear los contenedores. No ejecutes `docker compose down -v` si deseas conservar los modelos y la base de datos.
+
+Para comprobar el modelo y la conexión sin exponer Ollama:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ai.yml exec ollama ollama list
+docker compose -f docker-compose.yml -f docker-compose.ai.yml exec app node -e 'fetch("http://ollama:11434/api/tags").then(r=>{if(!r.ok)process.exit(1);return r.json()}).then(d=>console.log(d.models.map(m=>m.name)))'
+```
+
+El modelo visual `qwen2.5vl:3b` consume memoria y CPU o GPU del VPS; verifica el rendimiento con consultas reales antes de abrir FerreBot a todos los clientes. Un VPS pequeño puede tardar más que `OLLAMA_TIMEOUT_MS` o quedarse sin memoria. Si ya dispones de un servidor de inferencia separado, mantén `docker-compose.yml` y configura `OLLAMA_BASE_URL` con su dirección privada accesible desde el contenedor de Next.js. No expongas la API de Ollama directamente a Internet.
 
 ### 2. Instalar las dependencias
 

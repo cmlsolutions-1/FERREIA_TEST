@@ -59,7 +59,7 @@ const INITIAL: ChatMessage[] = [
   {
     id: "m0",
     role: "assistant",
-    text: "¡Hola! Soy FerreBot, el asistente local de FERREIA. Cuéntame qué quieres construir, qué producto necesitas o adjunta una foto. Consultaré el inventario real antes de recomendarte algo.",
+    text: "¡Hola! Soy FerreBot, el asistente de FERREIA. Cuéntame qué quieres construir, qué producto necesitas o adjunta una foto. Consultaré el inventario real antes de recomendarte algo.",
   },
 ]
 
@@ -313,7 +313,7 @@ export default function AsistentePage() {
         {imageError && <p className="text-xs text-destructive" role="alert">{imageError}</p>}
       </form>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        FerreBot usa Qwen2.5-VL local y consulta los productos activos del inventario. Las fotos se reducen a 768 px y no se guardan. La primera respuesta puede tardar mientras carga el modelo.
+        FerreBot consulta los productos activos del inventario. Las fotos se reducen a 768 px y no se guardan. La primera respuesta puede tardar mientras carga el modelo.
       </p>
     </div>
   )
