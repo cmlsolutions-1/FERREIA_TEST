@@ -34,6 +34,7 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
   const { addItem } = useCart()
   const shippingSettings = useShippingSettings()
   const [qty, setQty] = useState(1)
+  const [qtyInput, setQtyInput] = useState("1")
   const [activeImg, setActiveImg] = useState(0)
   const [added, setAdded] = useState(false)
   const [related, setRelated] = useState<Product[]>([])
@@ -56,6 +57,31 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
       .catch(() => { if (active) setRelated([]) })
     return () => { active = false }
   }, [product.category, product.id])
+
+  useEffect(() => {
+    if (stock > 0 && qty > stock) {
+      setQty(stock)
+      setQtyInput(String(stock))
+    }
+  }, [qty, stock])
+
+  function updateQuantity(value: number) {
+    const maximum = Math.max(1, stock)
+    const nextQuantity = Math.min(maximum, Math.max(1, Math.trunc(value)))
+    setQty(nextQuantity)
+    setQtyInput(String(nextQuantity))
+  }
+
+  function handleQuantityInput(value: string) {
+    if (value === "") {
+      setQtyInput("")
+      return
+    }
+    if (!/^\d+$/.test(value)) return
+    const parsed = Number(value)
+    if (!Number.isSafeInteger(parsed)) return
+    updateQuantity(parsed)
+  }
 
   function handleAdd() {
     if (stock <= 0 || qty > stock) return
@@ -185,13 +211,28 @@ export function ProductDetail({ product: initialProduct }: { product: Product })
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="flex items-center rounded-lg border border-border">
-              <Button variant="ghost" size="icon" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="Restar">
+              <Button variant="ghost" size="icon" onClick={() => updateQuantity(qty - 1)} disabled={stock <= 0 || qty <= 1} aria-label="Restar una unidad">
                 <Minus className="h-4 w-4" />
               </Button>
-              <span className="w-10 text-center font-medium">{qty}</span>
-              <Button variant="ghost" size="icon" onClick={() => setQty((q) => Math.min(stock, q + 1))} disabled={stock <= 0 || qty >= stock} aria-label="Sumar">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={qtyInput}
+                onChange={(event) => handleQuantityInput(event.target.value)}
+                onBlur={() => setQtyInput(String(qty))}
+                onFocus={(event) => event.currentTarget.select()}
+                onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur() }}
+                disabled={stock <= 0}
+                aria-label={`Cantidad de ${product.name}`}
+                aria-describedby="quantity-help"
+                title={stock > 0 ? `Escribe una cantidad entre 1 y ${stock}` : "Producto agotado"}
+                className="h-9 w-14 border-x border-border bg-transparent px-1 text-center font-semibold text-foreground outline-none transition-colors focus:bg-secondary focus:ring-2 focus:ring-inset focus:ring-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <Button variant="ghost" size="icon" onClick={() => updateQuantity(qty + 1)} disabled={stock <= 0 || qty >= stock} aria-label="Sumar una unidad">
                 <Plus className="h-4 w-4" />
               </Button>
+              <span id="quantity-help" className="sr-only">Cantidad mínima 1 y máxima {stock} según las existencias disponibles.</span>
             </div>
             <Button
               onClick={handleAdd}

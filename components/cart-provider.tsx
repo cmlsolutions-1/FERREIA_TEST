@@ -51,14 +51,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   function addItem(product: Product, qty = 1) {
     const currentProduct = product
+    const requestedQuantity = Math.min(
+      Math.max(0, currentProduct.stock),
+      Math.max(1, Math.trunc(qty)),
+    )
+    if (requestedQuantity <= 0) return
     setLines((prev) => {
       const existing = prev.find((l) => l.product.id === currentProduct.id)
       if (existing) {
         return prev.map((l) =>
-          l.product.id === currentProduct.id ? { ...l, product: currentProduct, qty: l.qty + qty } : l,
+          l.product.id === currentProduct.id
+            ? { ...l, product: currentProduct, qty: Math.min(currentProduct.stock, l.qty + requestedQuantity) }
+            : l,
         )
       }
-      return [...prev, { product: currentProduct, qty }]
+      return [...prev, { product: currentProduct, qty: requestedQuantity }]
     })
   }
 

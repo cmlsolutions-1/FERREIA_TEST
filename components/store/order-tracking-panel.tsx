@@ -22,7 +22,7 @@ export function OrderTrackingPanel({ order }: { order: FerreiaOrder }) {
   return (
     <div className="space-y-5">
       <Card className={cancelled ? "border-rose-200" : "overflow-hidden border-primary/15"}>
-        <div className={cancelled ? "bg-rose-50 px-5 py-5" : "bg-gradient-to-r from-primary to-[#24596b] px-5 py-5 text-primary-foreground"}>
+        <div className={cancelled ? "bg-rose-50 px-5 py-5" : "bg-gradient-to-r from-brand-navy to-brand-blue px-5 py-5 text-white"}>
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <p className={cancelled ? "text-xs font-bold uppercase tracking-wider text-rose-600" : "text-xs font-bold uppercase tracking-wider text-primary-foreground/65"}>Pedido {order.id}</p>

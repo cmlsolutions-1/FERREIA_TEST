@@ -130,24 +130,24 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 w-full">
       {/* Top utility bar */}
-      <div className="hidden bg-primary text-primary-foreground md:block">
+      <div className="hidden bg-brand-navy text-white md:block">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-xs">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5 text-accent" /> {COMPANY.phone}
+              <Phone className="h-3.5 w-3.5 text-brand-orange" /> {COMPANY.phone}
             </span>
             <span className="flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5 text-accent" /> Envíos a toda Colombia
+              <MapPin className="h-3.5 w-3.5 text-brand-orange" /> Envíos a toda Colombia
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/rastrear-pedido" className="flex items-center gap-1 hover:text-accent">
+            <Link href="/rastrear-pedido" className="flex items-center gap-1 transition-colors hover:text-brand-orange">
               <PackageSearch className="h-3.5 w-3.5" /> Rastrear pedido
             </Link>
-            <Link href="/asistente" className="hover:text-accent">
+            <Link href="/asistente" className="transition-colors hover:text-brand-orange">
               Asistente IA
             </Link>
-            <Link href="/admin" className="flex items-center gap-1 hover:text-accent">
+            <Link href="/admin" className="flex items-center gap-1 transition-colors hover:text-brand-orange">
               <LayoutDashboard className="h-3.5 w-3.5" /> Panel administrador
             </Link>
           </div>
@@ -155,7 +155,7 @@ export function SiteHeader() {
       </div>
 
       {/* Main bar */}
-      <div className="border-b border-border bg-background">
+      <div className="border-b border-border bg-card/95 shadow-[0_10px_30px_-26px_rgba(2,44,92,0.75)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
           <MobileNav activeCategory={activeCategory} allCatalogActive={allCatalogActive} onCategoryChange={setActiveCategory} categories={CATEGORIES} />
           <Logo />
@@ -197,7 +197,7 @@ export function SiteHeader() {
               <Button
                 type="submit"
                 size="icon"
-                className="h-8 w-8 rounded-full bg-accent text-accent-foreground hover:bg-accent/90"
+                className="h-8 w-8 rounded-full bg-brand-orange text-brand-navy shadow-sm hover:bg-brand-orange/90"
                 aria-label="Buscar"
               >
                 <Search className="h-4 w-4" />
@@ -235,7 +235,7 @@ export function SiteHeader() {
               <Link href="/carrito" aria-label="Carrito de compras">
                 <ShoppingCart className="h-5 w-5" />
                 {count > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-xs font-semibold text-accent-foreground">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-orange px-1 text-xs font-bold text-brand-navy">
                     {count}
                   </span>
                 )}
@@ -257,7 +257,7 @@ export function SiteHeader() {
         </form>
 
         {/* Category nav */}
-        <nav className="border-t border-border bg-background">
+        <nav className="border-t border-border bg-card/90">
           <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 text-sm">
             <button
               type="button"
@@ -277,7 +277,7 @@ export function SiteHeader() {
               aria-current={allCatalogActive ? "page" : undefined}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors",
-                allCatalogActive ? "bg-accent text-accent-foreground" : "bg-accent/10 text-accent hover:bg-accent/20",
+                allCatalogActive ? "bg-brand-orange font-semibold text-brand-navy" : "bg-brand-ice text-primary hover:bg-brand-orange/15",
               )}
             >
               <Sparkles className="h-4 w-4" /> Todo el catálogo

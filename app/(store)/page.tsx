@@ -56,7 +56,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <HomeHero />
+      <HomeHero products={PRODUCTS} totalProducts={productResponse.meta?.total ?? PRODUCTS.length} />
 
       {/* Categories */}
       <section className="mx-auto max-w-7xl px-4 py-12">

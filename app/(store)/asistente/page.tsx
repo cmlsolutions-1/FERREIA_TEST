@@ -34,7 +34,6 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_IMAGE_SIDE = 768
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
 const VISION_LABELS: Record<VisionResult["imageType"], string> = {
   furniture_project: "Proyecto o mueble",
   tool_or_product: "Herramienta o producto",
@@ -81,7 +80,7 @@ function FerreBotAvatar({ large = false }: { large?: boolean }) {
 function ProjectPlanCard({ plan }: { plan: ProjectPlan }) {
   return (
     <Card className="overflow-hidden border-primary/20 bg-card text-left shadow-sm">
-      <div className="border-b border-border bg-gradient-to-r from-primary/10 via-cyan-500/5 to-amber-400/10 p-4">
+      <div className="border-b border-border bg-gradient-to-r from-brand-navy/10 via-brand-ice to-brand-orange/10 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -192,36 +191,6 @@ function ProjectPlanCard({ plan }: { plan: ProjectPlan }) {
   )
 }
 
-async function prepareImage(file: File): Promise<AdvisorImage> {
-  if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-    throw new Error("La foto debe estar en formato JPG, PNG o WEBP.")
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
-    throw new Error("La foto no puede superar los 10 MB.")
-  }
-
-  const bitmap = await createImageBitmap(file)
-  try {
-    if (bitmap.width < 32 || bitmap.height < 32) {
-      throw new Error("La foto es demasiado pequeña para poder analizarla.")
-    }
-    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height))
-    const width = Math.max(1, Math.round(bitmap.width * scale))
-    const height = Math.max(1, Math.round(bitmap.height * scale))
-    const canvas = document.createElement("canvas")
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext("2d")
-    if (!context) throw new Error("El navegador no pudo preparar la foto.")
-    context.fillStyle = "#ffffff"
-    context.fillRect(0, 0, width, height)
-    context.drawImage(bitmap, 0, 0, width, height)
-    return { name: file.name, dataUrl: canvas.toDataURL("image/jpeg", 0.82) }
-  } finally {
-    bitmap.close()
-  }
-}
-
 >>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
 const SUGGESTIONS = [
   "Quiero construir una mesa de centro",
@@ -247,6 +216,11 @@ export default function AsistentePage() {
   const [imageError, setImageError] = useState("")
   const chatRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const suggestedQuery = new URLSearchParams(window.location.search).get("consulta")?.trim()
+    if (suggestedQuery) setInput(suggestedQuery)
+  }, [])
 
   useEffect(() => {
     const chat = chatRef.current

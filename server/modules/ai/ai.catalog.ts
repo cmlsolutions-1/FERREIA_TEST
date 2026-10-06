@@ -153,7 +153,25 @@ export const aiCatalog = {
 =======
   matchesRequirement,
 
+<<<<<<< Updated upstream
 >>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
+=======
+  async correctSpelling(message: string) {
+    const products = await productRepository.spellingTerms()
+    const vocabulary = products.flatMap((product) => [
+      product.name,
+      product.subcategory,
+      product.line,
+      product.group,
+      product.subgroup,
+      product.material ?? "",
+      product.category.name,
+      product.brand.name,
+    ])
+    return resolveCatalogSpelling(message, vocabulary)
+  },
+
+>>>>>>> Stashed changes
   async search(terms: string[], limit = 6): Promise<CatalogProduct[]> {
     const tokens = tokensFrom(terms)
     if (tokens.length === 0) return []
@@ -167,7 +185,7 @@ export const aiCatalog = {
     return records
       .map((record) => {
         const dto = productToDto(record)
-        const product = catalogProduct(record, directProductMatch(dto.name, terms) ? "direct" : "related")
+        const product = catalogProduct(record, directProductMatch(dto, terms) ? "direct" : "related")
         return {
           score: relevanceScore(dto, tokens, terms),
 <<<<<<< HEAD
