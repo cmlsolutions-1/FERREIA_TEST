@@ -13,9 +13,6 @@ const ollamaResponseSchema = z.object({
   message: z.object({ content: z.string() }),
 })
 
-<<<<<<< HEAD
-async function structuredChat<T>(messages: OllamaMessage[], schema: z.ZodType<T>): Promise<{ data: T; model: string }> {
-=======
 let requestInProgress = false
 
 async function structuredChat<T>(
@@ -28,7 +25,6 @@ async function structuredChat<T>(
   }
 
   requestInProgress = true
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), aiConfig.timeoutMs)
 
@@ -80,6 +76,7 @@ async function structuredChat<T>(
     throw new ApiError(503, "AI_UNAVAILABLE", "Ollama no está disponible en este momento")
   } finally {
     clearTimeout(timeout)
+    requestInProgress = false
   }
 }
 

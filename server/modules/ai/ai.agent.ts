@@ -504,26 +504,14 @@ export const aiAgent = {
       const products = imageProjectAnalysis.shouldSearchCatalog
         ? await aiCatalog.search(catalogTerms)
         : []
-<<<<<<< HEAD
-      return withSpellingNotice(responseFromAnalysis(
-=======
       const response = responseFromAnalysis(
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
         enrichedData,
         model || aiConfig.model,
         products,
         interpretedMessage,
         visionMetadata(data),
-<<<<<<< HEAD
-      ), spelling)
-=======
       )
-<<<<<<< Updated upstream
-      return attachProjectPlan(response, enrichedData)
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
-=======
       return withSpellingNotice(await attachProjectPlan(response, enrichedData), spelling)
->>>>>>> Stashed changes
     }
 
     const schema = z.toJSONSchema(projectAnalysisSchema)
@@ -540,10 +528,6 @@ export const aiAgent = {
     const modelTerms = data.intent === "manual_project" && !placeholder.test(data.projectName)
       ? unique([data.projectName, ...data.searchTerms])
       : unique(data.searchTerms)
-<<<<<<< Updated upstream
-<<<<<<< HEAD
-=======
->>>>>>> Stashed changes
     const catalogTerms = unique([...correctedTerms, ...modelTerms])
     const shouldSearchCatalog = data.shouldSearchCatalog || catalogTerms.length > 0
     const products = shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
@@ -555,17 +539,7 @@ export const aiAgent = {
     const enrichedData = directProductRequest
       ? { ...data, intent: "finished_product_search" as const, projectName: correctedTerms[0] ?? directProduct!.name, searchTerms: catalogTerms, missingSpecifications: [], shouldSearchCatalog: true }
       : { ...data, searchTerms: catalogTerms, shouldSearchCatalog }
-<<<<<<< Updated upstream
-    return withSpellingNotice(responseFromAnalysis(enrichedData, model || aiConfig.model, responseProducts, interpretedMessage), spelling)
-=======
-    const enrichedData = { ...data, searchTerms: catalogTerms }
-    const products = data.shouldSearchCatalog ? await aiCatalog.search(catalogTerms) : []
-    const response = responseFromAnalysis(enrichedData, model || aiConfig.model, products, currentMessage)
-    return attachProjectPlan(response, enrichedData)
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
-=======
     const response = responseFromAnalysis(enrichedData, model || aiConfig.model, responseProducts, interpretedMessage)
     return withSpellingNotice(await attachProjectPlan(response, enrichedData), spelling)
->>>>>>> Stashed changes
   },
 }

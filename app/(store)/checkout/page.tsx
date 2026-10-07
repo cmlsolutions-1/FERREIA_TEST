@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { PurchaseReviewForm } from "@/components/store/purchase-review-form"
 import { useCart } from "@/components/cart-provider"
 import { useCustomerSession } from "@/components/customer-session-provider"
 import { useOrders } from "@/components/order-provider"
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { useShippingSettings } from "@/components/use-shipping-settings"
 import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
 import { createMercadoPagoCheckout, getMercadoPagoOrderStatus } from "@/services/payments.service"
+import { rememberLastCustomerOrder } from "@/lib/customer-experience"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
 type PendingPaymentOrder = { id: string; email: string }
@@ -193,6 +195,12 @@ export default function CheckoutPage() {
       return
     }
     setError("")
+    rememberLastCustomerOrder({
+      id: result.order.id,
+      email: result.order.email,
+      customerName: result.order.customerName,
+      city: result.order.city,
+    })
     if (payment === "mercadopago") {
       const pendingOrder = { id: result.order.id, email: result.order.email }
       setPendingPaymentOrder(pendingOrder)
@@ -211,7 +219,18 @@ export default function CheckoutPage() {
   }
 
   if (completedOrder) {
-    return <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50"><CheckCircle2 className="h-12 w-12 text-emerald-600" /></span><p className="mt-5 text-sm font-bold uppercase tracking-widest text-accent">Compra completada</p><h1 className="mt-1 text-3xl font-black text-primary">¡Pedido confirmado!</h1><p className="mt-3 max-w-xl text-muted-foreground">Tu pedido <b className="text-foreground">{completedOrder.id}</b> fue registrado y las unidades ya se descontaron del inventario. La entrega está estimada entre <b>{completedOrder.estimatedFrom}</b> y <b>{completedOrder.estimatedTo}</b>.</p>{completedOrder.notification && <p role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${completedOrder.notification.sent ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{completedOrder.notification.sent ? `Enviamos la confirmación y el detalle del pedido a ${completedOrder.email}.` : "El pedido quedó confirmado, pero no fue posible enviar el correo. Puedes consultarlo con el número mostrado aquí."}</p>}<div className="mt-7 flex flex-wrap justify-center gap-3"><Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90"><Link href={`/rastrear-pedido?pedido=${completedOrder.id}`}><PackageSearch className="mr-2 h-4 w-4" />Rastrear mi pedido</Link></Button>{user && <Button asChild variant="outline"><Link href="/mi-cuenta">Ver mis pedidos</Link></Button>}<Button asChild variant="ghost"><Link href="/catalogo">Seguir comprando</Link></Button></div>{!user && <p className="mt-5 text-xs text-muted-foreground">Guarda el número del pedido. Para consultarlo necesitarás también el correo <b>{completedOrder.email}</b>.</p>}</div>
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center">
+        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50"><CheckCircle2 className="h-12 w-12 text-emerald-600" /></span>
+        <p className="mt-5 text-sm font-bold uppercase tracking-widest text-accent">Compra completada</p>
+        <h1 className="mt-1 text-3xl font-black text-primary">¡Pedido confirmado!</h1>
+        <p className="mt-3 max-w-xl text-muted-foreground">Tu pedido <b className="text-foreground">{completedOrder.id}</b> fue registrado y las unidades ya se descontaron del inventario. La entrega está estimada entre <b>{completedOrder.estimatedFrom}</b> y <b>{completedOrder.estimatedTo}</b>.</p>
+        {completedOrder.notification && <p role="status" className={`mt-4 rounded-lg px-4 py-3 text-sm ${completedOrder.notification.sent ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{completedOrder.notification.sent ? `Enviamos la confirmación y el detalle del pedido a ${completedOrder.email}.` : "El pedido quedó confirmado, pero no fue posible enviar el correo. Puedes consultarlo con el número mostrado aquí."}</p>}
+        <div className="mt-7 flex flex-wrap justify-center gap-3"><Button asChild className="bg-accent text-accent-foreground hover:bg-accent/90"><Link href={`/rastrear-pedido?pedido=${completedOrder.id}`}><PackageSearch className="mr-2 h-4 w-4" />Rastrear mi pedido</Link></Button>{user && <Button asChild variant="outline"><Link href="/mi-cuenta">Ver mis pedidos</Link></Button>}<Button asChild variant="ghost"><Link href="/catalogo">Seguir comprando</Link></Button></div>
+        {!user && <p className="mt-5 text-xs text-muted-foreground">Guarda el número del pedido. Para consultarlo necesitarás también el correo <b>{completedOrder.email}</b>.</p>}
+        <PurchaseReviewForm orderId={completedOrder.id} customerName={completedOrder.customerName} city={completedOrder.city} />
+      </div>
+    )
   }
 
   if (!pendingPaymentLoaded) return null

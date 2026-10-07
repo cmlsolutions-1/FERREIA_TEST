@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Phone, Mail, MapPin, Truck, ShieldCheck, CreditCard, Headphones } from "lucide-react"
+import { Phone, Mail, MapPin, Truck, ShieldCheck, CreditCard } from "lucide-react"
+import { CustomerSupport } from "@/components/store/customer-support"
 import { COMPANY } from "@/lib/data"
 import { getCategories, type CategoryRecord } from "@/services/categories.service"
 
@@ -11,7 +12,6 @@ const FEATURES = [
   { icon: Truck, title: "Envíos a toda Colombia", desc: "Despacho en 24-72h" },
   { icon: ShieldCheck, title: "Compra protegida", desc: "Garantía en cada producto" },
   { icon: CreditCard, title: "Pago seguro", desc: "Tarjeta, PSE y contra entrega" },
-  { icon: Headphones, title: "Soporte experto", desc: "Asesoría ferretera real" },
 ]
 
 export function SiteFooter() {
@@ -30,6 +30,7 @@ export function SiteFooter() {
               </div>
             </div>
           ))}
+          <CustomerSupport />
         </div>
       </div>
 
@@ -43,12 +44,12 @@ export function SiteFooter() {
             especializada con inteligencia artificial.
           </p>
           <div className="mt-4 space-y-2 text-sm text-white/80">
-            <p className="flex items-center gap-2">
+            <a href={`tel:${COMPANY.phone.replace(/[^+\d]/g, "")}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
               <Phone className="h-4 w-4 text-brand-orange" /> {COMPANY.phone}
-            </p>
-            <p className="flex items-center gap-2">
+            </a>
+            <a href={`mailto:${COMPANY.email}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
               <Mail className="h-4 w-4 text-brand-orange" /> {COMPANY.email}
-            </p>
+            </a>
             <p className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-brand-orange" /> {COMPANY.address}
             </p>

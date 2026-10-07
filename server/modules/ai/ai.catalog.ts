@@ -135,27 +135,8 @@ function catalogProduct(record: Awaited<ReturnType<typeof productRepository.list
 }
 
 export const aiCatalog = {
-<<<<<<< HEAD
-  async correctSpelling(message: string) {
-    const products = await productRepository.spellingTerms()
-    const vocabulary = products.flatMap((product) => [
-      product.name,
-      product.subcategory,
-      product.line,
-      product.group,
-      product.subgroup,
-      product.material ?? "",
-      product.category.name,
-      product.brand.name,
-    ])
-    return resolveCatalogSpelling(message, vocabulary)
-  },
-=======
   matchesRequirement,
 
-<<<<<<< Updated upstream
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
-=======
   async correctSpelling(message: string) {
     const products = await productRepository.spellingTerms()
     const vocabulary = products.flatMap((product) => [
@@ -170,8 +151,6 @@ export const aiCatalog = {
     ])
     return resolveCatalogSpelling(message, vocabulary)
   },
-
->>>>>>> Stashed changes
   async search(terms: string[], limit = 6): Promise<CatalogProduct[]> {
     const tokens = tokensFrom(terms)
     if (tokens.length === 0) return []
@@ -188,25 +167,7 @@ export const aiCatalog = {
         const product = catalogProduct(record, directProductMatch(dto, terms) ? "direct" : "related")
         return {
           score: relevanceScore(dto, tokens, terms),
-<<<<<<< HEAD
-          product: {
-            id: publicDto.id,
-            sku: publicDto.sku,
-            name: publicDto.name,
-            description: publicDto.description,
-            category: publicDto.category,
-            categoryName: publicDto.categoryName,
-            subcategory: publicDto.subcategory,
-            productType: publicDto.productType,
-            brand: publicDto.brand,
-            price: publicDto.price,
-            stock: publicDto.stock,
-            image: publicDto.image,
-            matchType: directProductMatch(dto, terms) ? "direct" as const : "related" as const,
-          },
-=======
           product,
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
         }
       })
       .filter(({ score }) => score >= 6)

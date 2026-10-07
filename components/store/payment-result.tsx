@@ -5,6 +5,7 @@ import Link from "next/link"
 import { AlertCircle, CheckCircle2, Clock3, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/components/cart-provider"
+import { PurchaseReviewForm } from "@/components/store/purchase-review-form"
 import type { MercadoPagoSyncResult } from "@/lib/mercado-pago"
 import { createMercadoPagoCheckout, synchronizeMercadoPagoPayment } from "@/services/payments.service"
 
@@ -87,5 +88,6 @@ export function PaymentResult({ requestedResult, paymentId, orderId }: { request
       {resolvedOrderId && <Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(resolvedOrderId)}`}>Consultar pedido</Link></Button>}
       <Button asChild variant="ghost"><Link href="/catalogo">Volver al catálogo</Link></Button>
     </div>
+    {approved && resolvedOrderId && <PurchaseReviewForm orderId={resolvedOrderId} />}
   </main>
 }

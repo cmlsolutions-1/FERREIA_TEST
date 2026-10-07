@@ -26,13 +26,7 @@ type ChatMessage = {
   plan?: ProjectPlan
 }
 
-<<<<<<< HEAD
-=======
 const FERREBOT_IMAGE = "/images/ferrebot-mascot-toollist.png"
-
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024
-const MAX_IMAGE_SIDE = 768
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 const VISION_LABELS: Record<VisionResult["imageType"], string> = {
   furniture_project: "Proyecto o mueble",
@@ -57,8 +51,6 @@ function visionLabel(vision: VisionResult) {
   return VISION_LABELS[vision.imageType]
 }
 
-<<<<<<< HEAD
-=======
 function FerreBotAvatar({ large = false }: { large?: boolean }) {
   return (
     <div className={`relative shrink-0 overflow-hidden border-2 border-[#f15a24]/55 bg-gradient-to-br from-[#e7eef6] via-white to-[#fff0e8] shadow-[0_8px_24px_rgba(0,45,91,0.16)] ring-1 ring-[#002d5b]/10 ${large ? "h-20 w-20 rounded-3xl" : "h-16 w-16 rounded-2xl"}`}>
@@ -191,7 +183,6 @@ function ProjectPlanCard({ plan }: { plan: ProjectPlan }) {
   )
 }
 
->>>>>>> 15b3c85 (implementacion ia parte 2 correccion errores)
 const SUGGESTIONS = [
   "Quiero construir una mesa de centro",
   "Quiero construir un mueble para televisor",

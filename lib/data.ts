@@ -5,7 +5,7 @@
 export const COMPANY = {
   name: "FERREIA",
   tagline: "Ferretería Digital Inteligente",
-  phone: "+57 601 555 0199",
+  phone: "+57 321 890 0642",
   email: "ventas@ferreia.co",
   address: "Cra. 50 #80-120, Bogotá D.C., Colombia",
 }
