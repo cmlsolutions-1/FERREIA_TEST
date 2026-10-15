@@ -1,5 +1,13 @@
 # FERREIA
 
+## Obsequios por valor del carrito
+
+Aplica las migraciones con `npm run db:deploy`. La migración de obsequios crea la categoría **GP** y la tabla de reglas; no agrega productos ni reglas de ejemplo. Crea los artículos de regalo en **Administrador → Catálogo de artículos** con categoría GP y existencias disponibles. Después configura los tramos en **Administrador → Obsequios**.
+
+Cada regla define una **base del tramo**, un **límite superior exclusivo** (opcional), una **compra adicional** y un producto GP. Por ejemplo, base $20.000 y compra adicional $15.000 dan el regalo desde $35.000; base $1.000.000 y compra adicional $200.000 lo dan desde $1.200.000. Los tramos activos no pueden solaparse. Se usa el tramo correspondiente al subtotal final de artículos; no se acumulan regalos de tramos inferiores. Se entrega como máximo **un obsequio por pedido**.
+
+El carrito consulta `GET /api/gifts/quote?subtotal=...` para mostrar progreso y sugerencias de artículos reales. Al confirmar el pedido, el servidor vuelve a calcular el subtotal, reserva una unidad del obsequio y la registra con precio cero dentro de la misma transacción de inventario y pedido. Los productos GP no aparecen en el catálogo público ni se pueden comprar directamente. Si no hay reglas configuradas, no se muestra una promesa de regalo.
+
 ## Instalación en un equipo nuevo
 
 Requisitos: Node.js 22, npm y Docker Desktop.

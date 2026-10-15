@@ -138,6 +138,7 @@ model Product {
   compatibilities   ProductCompatibility[]
   suppliers         ProductSupplier[]
   promotion         Promotion?
+  giftTiers         GiftTier[]
   costReview        ProductCostReview?
   orderItems        OrderItem[]
   purchaseLines     PurchaseOrderLine[]
@@ -340,8 +341,24 @@ model OrderItem {
   quantity  Int
   unitPrice Decimal  @db.Decimal(14, 2)
   total     Decimal  @db.Decimal(14, 2)
+  isGift    Boolean  @default(false)
 
   @@index([orderId])
+  @@index([productId])
+}
+
+model GiftTier {
+  id          String   @id @default(cuid())
+  minSubtotal Decimal  @db.Decimal(14, 2)
+  maxSubtotal Decimal? @db.Decimal(14, 2)
+  stepAmount  Decimal  @db.Decimal(14, 2)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, minSubtotal])
   @@index([productId])
 }
 

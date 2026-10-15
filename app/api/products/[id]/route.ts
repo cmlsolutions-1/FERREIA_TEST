@@ -3,12 +3,13 @@ import { updateProductSchema } from "@/server/modules/products/product.schema"
 import { handleApi, success } from "@/server/shared/api-response"
 import { idSchema, parseBody } from "@/server/shared/validation"
 import { requireAdmin } from "@/server/modules/auth/auth.service"
+import { ApiError } from "@/server/shared/api-error"
 
 export const runtime = "nodejs"
 type Context = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, context: Context) {
-  return handleApi(async () => { const admin = new URL(request.url).searchParams.get("admin") === "true"; if (admin) await requireAdmin(request); const product = await productService.get(idSchema.parse(await context.params).id); return success("Producto obtenido correctamente", admin ? product : publicProduct(product)) })
+  return handleApi(async () => { const admin = new URL(request.url).searchParams.get("admin") === "true"; if (admin) await requireAdmin(request); const product = await productService.get(idSchema.parse(await context.params).id); if (!admin && product.category === "gp") throw new ApiError(404, "PRODUCT_NOT_FOUND", "No fue posible encontrar el producto"); return success("Producto obtenido correctamente", admin ? product : publicProduct(product)) })
 }
 
 export async function PATCH(request: Request, context: Context) {

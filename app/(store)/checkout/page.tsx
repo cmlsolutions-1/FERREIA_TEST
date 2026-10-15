@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Banknote, Building2, CheckCircle2, CreditCard, LogIn, Package, PackageSearch, Truck, UserCheck } from "lucide-react"
+import { Banknote, Building2, CheckCircle2, CreditCard, Gift, LogIn, Package, PackageSearch, Truck, UserCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,6 +19,7 @@ import { useShippingSettings } from "@/components/use-shipping-settings"
 import { calculateShipping, freeShippingProgress } from "@/lib/shipping"
 import { createMercadoPagoCheckout, getMercadoPagoOrderStatus } from "@/services/payments.service"
 import { rememberLastCustomerOrder } from "@/lib/customer-experience"
+import { getGiftQuote, type GiftQuote } from "@/services/gifts.service"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
 type PendingPaymentOrder = { id: string; email: string }
@@ -43,6 +44,7 @@ export default function CheckoutPage() {
   const [shipping, setShipping] = useState<"estandar" | "express">("estandar")
   const [payment, setPayment] = useState<"mercadopago" | "contraentrega">("mercadopago")
   const [form, setForm] = useState<CustomerForm>(emptyForm)
+  const [giftQuote, setGiftQuote] = useState<GiftQuote | null>(null)
   const [completedOrder, setCompletedOrder] = useState<FerreiaOrder | null>(null)
   const [error, setError] = useState("")
   const [processing, setProcessing] = useState(false)
@@ -50,6 +52,12 @@ export default function CheckoutPage() {
   const [pendingPaymentLoaded, setPendingPaymentLoaded] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
   const submissionLocked = useRef(false)
+  useEffect(() => {
+    if (subtotal <= 0) return
+    let stale = false
+    getGiftQuote(subtotal).then((result) => { if (!stale) setGiftQuote(result.data) }).catch(() => { if (!stale) setGiftQuote(null) })
+    return () => { stale = true }
+  }, [subtotal])
   const paymentTab = useRef<Window | null>(null)
 
   useEffect(() => {
@@ -247,7 +255,7 @@ export default function CheckoutPage() {
       <Section title="Método de envío" icon={Package}>{shippingSettings.enabled ? <><div className="grid gap-3 sm:grid-cols-2">{shippingSettings.standard.active && <OptionCard active={shipping === "estandar"} onClick={() => setShipping("estandar")} title={`Estándar (${shippingSettings.standard.minDays}-${shippingSettings.standard.maxDays} días)`} desc={!standardQuote.available ? "No disponible" : standardQuote.free ? "Gratis" : formatCOP(standardQuote.cost)} />}{shippingSettings.express.active && <OptionCard active={shipping === "express"} onClick={() => setShipping("express")} title={`Express (${shippingSettings.express.minDays}-${shippingSettings.express.maxDays} días)`} desc={!expressQuote.available ? "No disponible" : expressQuote.free ? "Gratis" : formatCOP(expressQuote.cost)} />}</div><div className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">{!shippingSettings.standard.active && !shippingSettings.express.active ? "No hay métodos de envío activos." : form.department && !selectedQuote.zone ? `No contamos con cobertura para ${form.department}.` : form.department ? `Tarifa para ${form.department} · ${selectedQuote.zone?.name}.` : "Selecciona el departamento para confirmar la tarifa exacta."}{selectedQuote.available && !selectedQuote.free && selectedQuote.method.freeShippingEligible && shippingSettings.freeShipping.enabled && <span> {shippingSettings.freeShipping.mode === "all" ? "Condiciones pendientes:" : "Envío gratis al cumplir una condición:"}{shippingSettings.freeShipping.byAmount && shippingProgress.amountRemaining > 0 && ` ${formatCOP(shippingProgress.amountRemaining)} adicionales`}{shippingSettings.freeShipping.byQuantity && shippingProgress.quantityRemaining > 0 && ` ${shippingProgress.quantityRemaining} unidades más`}.</span>}</div></> : <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Los envíos se encuentran temporalmente deshabilitados.</p>}</Section>
       <Section title="Método de pago" icon={CreditCard}><div className="grid gap-3 sm:grid-cols-2"><OptionCard active={payment === "mercadopago"} onClick={() => setPayment("mercadopago")} title="Mercado Pago" desc="Tarjetas, PSE y saldo disponible" icon={CreditCard} /><OptionCard active={payment === "contraentrega"} onClick={() => setPayment("contraentrega")} title="Contra entrega" desc="Paga al recibir" icon={Banknote} /></div>{payment === "mercadopago" && <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900"><p className="font-semibold">Pago protegido por Mercado Pago</p><p className="mt-1 text-xs text-sky-800">Al confirmar serás dirigido al checkout seguro para elegir tarjeta, PSE u otro medio disponible. FERREIA no almacena los datos de tu tarjeta.</p></div>}</Section>
     </div>
-      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div><dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={!selectedQuote.available ? "No disponible" : shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing || !selectedQuote.available} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? payment === "mercadopago" ? "Abriendo Mercado Pago..." : "Creando pedido..." : payment === "mercadopago" ? "Pagar con Mercado Pago" : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">{payment === "mercadopago" ? "El estado del pago se actualizará automáticamente en tu pedido." : "Al confirmar, las unidades se descuentan del inventario."}</p></aside>
+      <aside className="h-fit rounded-xl border border-border bg-card p-5"><h2 className="font-semibold text-primary">Resumen final</h2><div className="mt-3 max-h-64 space-y-3 overflow-auto">{lines.map(({ product, qty }) => { const pricing = calculateTieredPrice(product, qty); return <div key={product.id} className="flex items-center gap-3 text-sm"><img src={product.image || "/placeholder.svg"} alt={product.name} className="h-12 w-12 rounded-md object-cover" /><div className="flex-1"><p className="line-clamp-1 font-medium">{product.name}</p><p className="text-xs text-muted-foreground">x{qty} · {formatCOP(pricing.averageUnitPrice)} / und</p></div><span className="font-medium">{formatCOP(pricing.total)}</span></div>})}</div>{giftQuote?.status === "earned" && giftQuote.tier && <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><Gift className="h-4 w-4 shrink-0" /><span>Obsequio: <strong>{giftQuote.tier.product.name}</strong> · Gratis</span></div>}<dl className="mt-4 space-y-2 border-t pt-4 text-sm"><Row label="Subtotal" value={formatCOP(subtotal)} /><Row label="IVA (19%)" value={formatCOP(tax)} /><Row label="Envío" value={!selectedQuote.available ? "No disponible" : shippingCost === 0 ? "Gratis" : formatCOP(shippingCost)} /><div className="mt-2 flex justify-between border-t pt-3 text-base"><dt className="font-semibold text-primary">Total</dt><dd className="font-bold text-primary">{formatCOP(total)}</dd></div></dl>{error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}<Button type="submit" disabled={processing || !selectedQuote.available} className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90">{processing ? payment === "mercadopago" ? "Abriendo Mercado Pago..." : "Creando pedido..." : payment === "mercadopago" ? "Pagar con Mercado Pago" : "Confirmar pedido"}</Button><p className="mt-2 text-center text-xs text-muted-foreground">{payment === "mercadopago" ? "El estado del pago se actualizará automáticamente en tu pedido." : "Al confirmar, las unidades se descuentan del inventario."}</p></aside>
     </form>
   </div>
 }

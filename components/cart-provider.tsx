@@ -74,9 +74,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   function setQty(id: string, qty: number) {
+    if (!Number.isFinite(qty)) return
     setLines((prev) =>
       prev
-        .map((l) => (l.product.id === id ? { ...l, qty: Math.max(1, qty) } : l))
+        .map((l) => (l.product.id === id ? { ...l, qty: Math.min(l.product.stock, Math.max(1, Math.trunc(qty))) } : l))
         .filter((l) => l.qty > 0),
     )
   }

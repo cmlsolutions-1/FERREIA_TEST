@@ -7,6 +7,8 @@ import { ApiError } from "@/server/shared/api-error"
 import { paginationMeta } from "@/server/shared/pagination"
 import { resolvePromotionPrices } from "@/server/modules/promotions/promotion-pricing"
 import { sendOrderCreatedEmail, sendOrderUpdatedEmail } from "@/server/modules/orders/order-mailer"
+import { giftForSubtotal } from "@/server/modules/gifts/gift.service"
+import { giftInclude } from "@/server/modules/gifts/gift.repository"
 
 type Order = NonNullable<Awaited<ReturnType<typeof orderRepository.find>>>
 const n = (value: { toNumber(): number } | number) => typeof value === "number" ? value : value.toNumber()
@@ -15,7 +17,7 @@ export function orderToDto(order: Order) {
   return {
     id: order.id, customerId: order.customerId, guest: order.guest, customerName: order.customerName,
     document: order.document, email: order.email, phone: order.phone, createdAt: order.createdAt.toISOString(),
-    items: order.items.map((item) => ({ productId: item.productId, sku: item.sku, reference: item.reference || item.sku, name: item.name, image: item.image, quantity: item.quantity, unitPrice: n(item.unitPrice), total: n(item.total) })),
+    items: order.items.map((item) => ({ productId: item.productId, sku: item.sku, reference: item.reference || item.sku, name: item.name, image: item.image, quantity: item.quantity, unitPrice: n(item.unitPrice), total: n(item.total), isGift: item.isGift })),
     subtotal: n(order.subtotal), tax: n(order.tax), shippingCost: n(order.shippingCost), total: n(order.total),
     paymentMethod: order.paymentMethod, paymentStatus: order.paymentStatus, shippingMethod: order.shippingMethod,
     address: order.address, city: order.city, department: order.department, carrier: order.carrier,
@@ -40,8 +42,9 @@ export const orderService = {
       const lines = []
       let tax = 0
       for (const item of input.items) {
-        const product = await tx.product.findFirst({ where: { OR: [{ id: item.productId }, { sku: item.productId }], active: true }, include: { images: { orderBy: { position: "asc" } }, priceTiers: true, promotion: true } })
+        const product = await tx.product.findFirst({ where: { OR: [{ id: item.productId }, { sku: item.productId }], active: true }, include: { images: { orderBy: { position: "asc" } }, priceTiers: true, promotion: true, category: true } })
         if (!product) throw new ApiError(404, "PRODUCT_NOT_FOUND", `Producto no disponible: ${item.productId}`)
+        if (product.category.slug === "gp") throw new ApiError(422, "GIFT_NOT_FOR_SALE", "Los obsequios no se pueden comprar directamente")
         const result = await tx.product.updateMany({ where: { id: product.id, stock: { gte: item.quantity } }, data: { stock: { decrement: item.quantity } } })
         if (!result.count) throw new ApiError(409, "INSUFFICIENT_STOCK", `No hay existencias suficientes de ${product.name}`)
         const tierPrices = Object.fromEntries(product.priceTiers.map((entry) => [entry.kind, n(entry.unitPrice)]))
@@ -51,7 +54,7 @@ export const orderService = {
         const tierKind = tier?.kind === "inner" || tier?.kind === "master" ? tier.kind : "unit"
         const unitPrice = promotionPricing.active ? promotionPricing.prices[tierKind] : basePrices[tierKind]
         tax += Math.round(unitPrice * item.quantity * n(product.taxRate) / 100)
-        lines.push({ productId: product.id, sku: product.sku, reference: product.reference, name: product.name, image: product.images[0]?.url ?? "/placeholder.svg", quantity: item.quantity, unitPrice, total: unitPrice * item.quantity })
+        lines.push({ productId: product.id, sku: product.sku, reference: product.reference, name: product.name, image: product.images[0]?.url ?? "/placeholder.svg", quantity: item.quantity, unitPrice, total: unitPrice * item.quantity, isGift: false })
         await tx.inventoryMovement.create({ data: { productId: product.id, quantity: -item.quantity, kind: "SALE", referenceId: id, warehouseName: "" } })
       }
       const subtotal = lines.reduce((sum, line) => sum + line.total, 0)
@@ -62,6 +65,14 @@ export const orderService = {
       const quantity = lines.reduce((sum, line) => sum + line.quantity, 0)
       const free = shipping?.enabled && shipping.freeEnabled && method?.freeEligible && (shipping.freeMode === "all" ? (!shipping.freeByAmount || subtotal >= n(shipping.minimumAmount)) && (!shipping.freeByQuantity || quantity >= shipping.minimumQuantity) : (shipping.freeByAmount && subtotal >= n(shipping.minimumAmount)) || (shipping.freeByQuantity && quantity >= shipping.minimumQuantity))
       const shippingCost = free ? 0 : (method ? n(method.baseCost) : 0) + (zone ? n(zone.surcharge) : 0)
+      const giftTiers = await tx.giftTier.findMany({ where: { active: true }, include: giftInclude, orderBy: { minSubtotal: "asc" } })
+      const gift = giftForSubtotal(giftTiers, subtotal)
+      if (gift && subtotal >= n(gift.minSubtotal) + n(gift.stepAmount)) {
+        const reserved = await tx.product.updateMany({ where: { id: gift.productId, active: true, stock: { gte: 1 } }, data: { stock: { decrement: 1 } } })
+        if (!reserved.count) throw new ApiError(409, "GIFT_OUT_OF_STOCK", "El obsequio se agotó. Intenta nuevamente")
+        lines.push({ productId: gift.product.id, sku: gift.product.sku, reference: gift.product.reference, name: gift.product.name, image: gift.product.images[0]?.url ?? "/placeholder.svg", quantity: 1, unitPrice: 0, total: 0, isGift: true })
+        await tx.inventoryMovement.create({ data: { productId: gift.productId, quantity: -1, kind: "SALE", referenceId: id, warehouseName: "" } })
+      }
       const now = new Date()
       const eta = (days: number) => new Date(now.getTime() + days * 86400000)
       await tx.order.create({ data: { id, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en TooList", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "TooList recibió la compra y descontó las unidades del inventario.", location: "FERREIA · Bogotá", occurredAt: now }] } } })

@@ -39,6 +39,7 @@ export type OrderItem = {
   quantity: number
   unitPrice: number
   total: number
+  isGift?: boolean
 }
 
 export type OrderTimelineEvent = {

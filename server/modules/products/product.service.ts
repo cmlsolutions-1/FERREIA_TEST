@@ -3,6 +3,7 @@ import type { z } from "zod"
 import { productRepository } from "@/server/modules/products/product.repository"
 import { createProductSchema, productFiltersSchema, updateProductSchema } from "@/server/modules/products/product.schema"
 import { ApiError } from "@/server/shared/api-error"
+import { prisma } from "@/server/database/prisma"
 import { paginationMeta } from "@/server/shared/pagination"
 import { resolvePromotionPrices } from "@/server/modules/promotions/promotion-pricing"
 
@@ -86,6 +87,7 @@ function scalars(input: Create | Update) {
 export const productService = {
   async list(filters: Filters) {
     const where: Prisma.ProductWhereInput = {
+      ...(!filters.admin ? { NOT: { category: { slug: "gp" } } } : {}),
       ...(filters.active ? { active: filters.active === "true" } : {}),
       ...(filters.category ? { category: { slug: filters.category } } : {}),
       ...(filters.brand ? { brand: { name: { equals: filters.brand, mode: "insensitive" } } } : {}),
@@ -109,6 +111,9 @@ export const productService = {
   async update(id: string, input: Update) {
     const existing = await productRepository.find(id)
     if (!existing) throw new ApiError(404, "PRODUCT_NOT_FOUND", "No fue posible encontrar el producto")
+    if (input.categoryId && input.categoryId !== existing.categoryId && await prisma.giftTier.count({ where: { productId: existing.id } })) {
+      throw new ApiError(409, "GIFT_PRODUCT_IN_USE", "El artículo está vinculado a una regla de obsequios")
+    }
     const data = { ...scalars(input), ...nested(input, true), ...(input.costReviewPending !== undefined && existing.costReview ? { costReview: { update: { pending: input.costReviewPending } } } : {}) } as Prisma.ProductUncheckedUpdateInput
     return productToDto(await productRepository.update(existing.id, data))
   },

@@ -67,7 +67,7 @@ export function OrderTrackingPanel({ order }: { order: FerreiaOrder }) {
           <CardContent className="p-5">
             <h3 className="font-bold">Productos</h3>
             <div className="mt-4 space-y-4">
-              {order.items.map((item) => <div key={`${item.sku}-${item.productId}`} className="flex gap-3"><img src={item.image || "/placeholder.svg"} alt={item.name} className="h-14 w-14 rounded-lg border object-cover" /><div className="min-w-0 flex-1"><p className="line-clamp-2 text-sm font-medium">{item.name}</p><p className="mt-1 text-xs text-muted-foreground">{item.quantity} und · {formatCOP(item.total)}</p></div></div>)}
+              {order.items.map((item) => <div key={`${item.sku}-${item.productId}`} className="flex gap-3"><img src={item.image || "/placeholder.svg"} alt={item.name} className="h-14 w-14 rounded-lg border object-cover" /><div className="min-w-0 flex-1"><p className="line-clamp-2 text-sm font-medium">{item.name}{item.isGift && <span className="ml-2 text-xs text-amber-700">Obsequio gratis</span>}</p><p className="mt-1 text-xs text-muted-foreground">{item.quantity} und · {formatCOP(item.total)}</p></div></div>)}
             </div>
             <dl className="mt-5 space-y-2 border-t pt-4 text-sm"><div className="flex justify-between"><dt className="text-muted-foreground">Pago</dt><dd className="font-medium">{order.paymentStatus}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Método</dt><dd>{order.paymentMethod}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">Envío</dt><dd>{order.shippingMethod}</dd></div></dl>
           </CardContent>

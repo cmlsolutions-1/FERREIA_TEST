@@ -202,7 +202,7 @@ export const mercadoPagoService = {
     const appUrl = applicationUrl()
     const resultUrl = new URL("/checkout/resultado", appUrl)
     const publicCallbacks = isPublicHttps(appUrl)
-    const items = order.items.map((item) => ({
+    const items = order.items.filter((item) => !item.isGift).map((item) => ({
       id: item.sku,
       title: `${item.quantity} × ${item.name}`.slice(0, 120),
       description: `Referencia ${item.reference || item.sku}`,
