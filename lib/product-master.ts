@@ -5,6 +5,7 @@ export type ProductMaster = {
   id: string; reference: string; supplierReference: string; name: string; sku: string
   barcodes: { presentation: "Unidad" | "Inner" | "Master" | "Alterno"; code: string }[]
   line: string; brand: string; group: string; subgroup: string; packaging: { inner: number; master: number }
+  categorySlug?: string
   productType: ProductType
   priceTiers: ProductPriceTiers
   unit: string; weight: number; cost: number; price: number; taxRate: number; warehouse: string
