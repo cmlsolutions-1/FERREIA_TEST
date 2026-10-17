@@ -2,6 +2,7 @@ import { requireAdmin } from "@/server/modules/auth/auth.service"
 import { uploadProductImage, type ProductImageType } from "@/server/modules/uploads/spaces.service"
 import { ApiError } from "@/server/shared/api-error"
 import { handleApi, success } from "@/server/shared/api-response"
+import { assertContentLength, assertRateLimit, assertTrustedOrigin } from "@/server/shared/request-security"
 
 export const runtime = "nodejs"
 
@@ -17,6 +18,9 @@ function matchesSignature(bytes: Buffer, type: ProductImageType) {
 export async function POST(request: Request) {
   return handleApi(async () => {
     await requireAdmin(request)
+    assertTrustedOrigin(request)
+    assertRateLimit(request, "product-image", { limit: 30, windowMs: 10 * 60_000 })
+    assertContentLength(request, MAX_FILE_SIZE + 256 * 1024)
     let formData: FormData
     try { formData = await request.formData() }
     catch { throw new ApiError(400, "INVALID_REQUEST", "Envía la imagen como formulario válido") }

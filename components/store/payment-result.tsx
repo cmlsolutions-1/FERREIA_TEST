@@ -9,7 +9,7 @@ import { PurchaseReviewForm } from "@/components/store/purchase-review-form"
 import type { MercadoPagoSyncResult } from "@/lib/mercado-pago"
 import { createMercadoPagoCheckout, synchronizeMercadoPagoPayment } from "@/services/payments.service"
 
-type StoredOrder = { orderId: string; email: string }
+type StoredOrder = { orderId: string; accessToken: string }
 
 function storedOrder() {
   try {
@@ -26,14 +26,19 @@ export function PaymentResult({ requestedResult, paymentId, orderId }: { request
   const [loading, setLoading] = useState(Boolean(paymentId))
   const [retrying, setRetrying] = useState(false)
   const [localOrderId, setLocalOrderId] = useState("")
+  const [localAccessToken, setLocalAccessToken] = useState("")
 
   useEffect(() => { clearCart.current = clear }, [clear])
 
   useEffect(() => {
-    setLocalOrderId(storedOrder()?.orderId ?? "")
+    const initialOrder = storedOrder()
+    setLocalOrderId(initialOrder?.orderId ?? "")
+    setLocalAccessToken(initialOrder?.accessToken ?? "")
     if (!paymentId) return
     let active = true
-    synchronizeMercadoPagoPayment(paymentId)
+    const stored = storedOrder()
+    if (!stored?.orderId || !stored.accessToken) { setError("No encontramos la credencial local del pedido."); setLoading(false); return }
+    synchronizeMercadoPagoPayment(paymentId, stored.orderId, stored.accessToken)
       .then((response) => {
         if (!active) return
         setPayment(response.data)
@@ -55,14 +60,14 @@ export function PaymentResult({ requestedResult, paymentId, orderId }: { request
 
   async function retry() {
     const stored = storedOrder()
-    if (!stored?.orderId || !stored.email) {
+    if (!stored?.orderId || !stored.accessToken) {
       setError("No encontramos los datos locales del pedido. Puedes consultarlo y solicitar un nuevo enlace de pago.")
       return
     }
     setRetrying(true)
     setError("")
     try {
-      const checkout = await createMercadoPagoCheckout(stored.orderId, stored.email)
+      const checkout = await createMercadoPagoCheckout(stored.orderId, stored.accessToken)
       window.location.assign(checkout.data.checkoutUrl)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible reintentar el pago.")
@@ -85,7 +90,7 @@ export function PaymentResult({ requestedResult, paymentId, orderId }: { request
     {error && <p className="mt-4 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
     <div className="mt-7 flex flex-wrap justify-center gap-3">
       {rejected && <Button onClick={() => void retry()} disabled={retrying} className="bg-sky-600 text-white hover:bg-sky-700"><RefreshCw className={`mr-2 h-4 w-4 ${retrying ? "animate-spin" : ""}`} />{retrying ? "Abriendo..." : "Reintentar pago"}</Button>}
-      {resolvedOrderId && <Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(resolvedOrderId)}`}>Consultar pedido</Link></Button>}
+      {resolvedOrderId && <Button asChild variant="outline"><Link href={`/rastrear-pedido?pedido=${encodeURIComponent(resolvedOrderId)}${localAccessToken ? `#token=${encodeURIComponent(localAccessToken)}` : ""}`}>Consultar pedido</Link></Button>}
       <Button asChild variant="ghost"><Link href="/catalogo">Volver al catálogo</Link></Button>
     </div>
     {approved && resolvedOrderId && <PurchaseReviewForm orderId={resolvedOrderId} />}

@@ -81,6 +81,7 @@ export type FerreiaOrder = {
   inventoryApplied: boolean
   inventoryRestored: boolean
   notification?: { sent: boolean; message: string }
+  accessToken?: string
 }
 
 export type CreateOrderInput = Omit<

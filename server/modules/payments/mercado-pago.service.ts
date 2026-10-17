@@ -10,11 +10,13 @@ type MercadoPagoPaymentResponse = Awaited<ReturnType<Payment["get"]>>
 
 export const checkoutPreferenceSchema = z.object({
   orderId: z.string().trim().min(1).max(128),
-  email: z.email(),
+  accessToken: z.string().min(32).max(256),
 }).strict()
 
 export const synchronizePaymentSchema = z.object({
   paymentId: z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d+$/)),
+  orderId: z.string().trim().min(1).max(128),
+  accessToken: z.string().min(32).max(256),
 }).strict()
 
 export const orderPaymentStatusSchema = checkoutPreferenceSchema
@@ -190,13 +192,13 @@ export const mercadoPagoService = {
     }
   },
 
-  async createPreference(orderId: string, email: string) {
+  async createPreference(orderId: string, accessToken: string) {
     const order = await orderRepository.find(orderId)
-    if (!order || order.email.toLowerCase() !== email.trim().toLowerCase()) {
+    if (!order || !await orderService.verifyAccessToken(orderId, accessToken)) {
       throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido para iniciar el pago")
     }
     if (order.paymentMethod === "Contra entrega") throw new ApiError(409, "PAYMENT_METHOD_INVALID", "Este pedido utiliza pago contra entrega")
-    const currentPayment = await this.synchronizeOrder(orderId, email)
+    const currentPayment = await this.synchronizeOrder(orderId, accessToken)
     if (currentPayment.paymentStatus === "Pagado") throw new ApiError(409, "ORDER_ALREADY_PAID", "Este pedido ya se encuentra pagado")
 
     const appUrl = applicationUrl()
@@ -266,9 +268,23 @@ export const mercadoPagoService = {
     }
   },
 
-  async synchronizeOrder(orderId: string, email: string) {
+  async synchronizeAuthorized(paymentId: string, orderId: string, accessToken: string) {
+    if (!await orderService.verifyAccessToken(orderId, accessToken)) {
+      throw new ApiError(401, "UNAUTHORIZED", "No tienes acceso a este pago")
+    }
+    try {
+      const payment = await new Payment(client()).get({ id: paymentId })
+      if (payment.external_reference !== orderId) throw new ApiError(404, "PAYMENT_NOT_FOUND", "No fue posible encontrar el pago")
+      return await persistPayment(payment, "payment.return", false)
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError(502, "MERCADOPAGO_SYNC_FAILED", "No fue posible confirmar el estado del pago con Mercado Pago")
+    }
+  },
+
+  async synchronizeOrder(orderId: string, accessToken: string) {
     const order = await orderRepository.find(orderId)
-    if (!order || order.email.toLowerCase() !== email.trim().toLowerCase()) {
+    if (!order || !await orderService.verifyAccessToken(orderId, accessToken)) {
       throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido")
     }
     if (order.paymentMethod !== "Mercado Pago") {
@@ -329,7 +345,7 @@ export const mercadoPagoService = {
 
   validateWebhook(request: Request, dataId: string) {
     const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET?.trim()
-    if (!secret) return false
+    if (!secret) throw new ApiError(503, "WEBHOOK_NOT_CONFIGURED", "La verificación del webhook no está configurada")
     try {
       WebhookSignatureValidator.validate({
         xSignature: request.headers.get("x-signature"),

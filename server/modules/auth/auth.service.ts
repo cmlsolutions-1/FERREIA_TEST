@@ -4,6 +4,7 @@ import { authRepository } from "@/server/modules/auth/auth.repository"
 import { ApiError } from "@/server/shared/api-error"
 import { verifyPassword } from "@/server/shared/password"
 import { shouldSecureCookie } from "@/server/shared/cookie-security"
+import { assertTrustedOrigin } from "@/server/shared/request-security"
 
 const COOKIE_NAME = "ferreia_admin_session"
 const SESSION_DAYS = 7
@@ -26,6 +27,7 @@ export async function loginAdmin(email: string, password: string) {
 }
 
 export async function requireAdmin(request: Request) {
+  if (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) assertTrustedOrigin(request)
   const token = getCookie(request)
   if (!token) throw new ApiError(401, "UNAUTHORIZED", "Debes iniciar sesión como administrador")
   const session = await authRepository.findSession(tokenHash(token))
@@ -35,16 +37,17 @@ export async function requireAdmin(request: Request) {
 }
 
 export async function logoutAdmin(request: Request) {
+  assertTrustedOrigin(request)
   const token = getCookie(request)
   if (token) await authRepository.deleteSession(tokenHash(token))
 }
 
 export function setAdminCookie(response: NextResponse, token: string, request: Request) {
-  response.cookies.set(COOKIE_NAME, token, { httpOnly: true, secure: shouldSecureCookie(request), sameSite: "lax", path: "/", maxAge: SESSION_DAYS * 86400 })
+  response.cookies.set(COOKIE_NAME, token, { httpOnly: true, secure: shouldSecureCookie(request), sameSite: "strict", priority: "high", path: "/", maxAge: SESSION_DAYS * 86400 })
   return response
 }
 
 export function clearAdminCookie(response: NextResponse, request: Request) {
-  response.cookies.set(COOKIE_NAME, "", { httpOnly: true, secure: shouldSecureCookie(request), sameSite: "lax", path: "/", maxAge: 0 })
+  response.cookies.set(COOKIE_NAME, "", { httpOnly: true, secure: shouldSecureCookie(request), sameSite: "strict", priority: "high", path: "/", maxAge: 0 })
   return response
 }

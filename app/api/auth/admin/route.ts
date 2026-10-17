@@ -2,6 +2,7 @@ import { loginAdmin, logoutAdmin, requireAdmin, setAdminCookie, clearAdminCookie
 import { adminLoginSchema } from "@/server/modules/auth/auth.schema"
 import { handleApi, success } from "@/server/shared/api-response"
 import { parseBody } from "@/server/shared/validation"
+import { assertRateLimit } from "@/server/shared/request-security"
 
 export const runtime = "nodejs"
 
@@ -11,6 +12,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return handleApi(async () => {
+    assertRateLimit(request, "admin-login", { limit: 5, windowMs: 15 * 60_000 })
     const { email, password } = await parseBody(request, adminLoginSchema)
     const result = await loginAdmin(email, password)
     return setAdminCookie(success("Sesión iniciada correctamente", result.user), result.token, request)

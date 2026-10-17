@@ -9,10 +9,12 @@ import { resolvePromotionPrices } from "@/server/modules/promotions/promotion-pr
 import { sendOrderCreatedEmail, sendOrderUpdatedEmail } from "@/server/modules/orders/order-mailer"
 import { giftForSubtotal } from "@/server/modules/gifts/gift.service"
 import { giftInclude } from "@/server/modules/gifts/gift.repository"
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
 
 type Order = NonNullable<Awaited<ReturnType<typeof orderRepository.find>>>
 const n = (value: { toNumber(): number } | number) => typeof value === "number" ? value : value.toNumber()
 const date = (value: Date | null) => value?.toISOString().slice(0, 10) ?? ""
+const tokenHash = (value: string) => createHash("sha256").update(value).digest()
 export function orderToDto(order: Order) {
   return {
     id: order.id, customerId: order.customerId, guest: order.guest, customerName: order.customerName,
@@ -29,15 +31,25 @@ export function orderToDto(order: Order) {
 }
 
 export const orderService = {
-  async listForCustomer(customerId: string, email: string) { return (await orderRepository.list({ OR: [{ customerId }, { email: { equals: email, mode: "insensitive" } }] }, 0, 100)).map(orderToDto) },
+  async listForCustomer(customerId: string) { return (await orderRepository.list({ customerId }, 0, 100)).map(orderToDto) },
   async list(filters: z.infer<typeof orderFiltersSchema>) {
     const where: Prisma.OrderWhereInput = { ...(filters.status ? { status: filters.status } : {}), ...(filters.search ? { OR: [{ id: { contains: filters.search, mode: "insensitive" } }, { email: { contains: filters.search, mode: "insensitive" } }, { customerName: { contains: filters.search, mode: "insensitive" } }, { document: { contains: filters.search, mode: "insensitive" } }, { phone: { contains: filters.search, mode: "insensitive" } }, { city: { contains: filters.search, mode: "insensitive" } }, { carrier: { contains: filters.search, mode: "insensitive" } }, { trackingNumber: { contains: filters.search, mode: "insensitive" } }] } : {}) }
     const [orders, total] = await Promise.all([orderRepository.list(where, (filters.page - 1) * filters.limit, filters.limit), orderRepository.count(where)])
     return { data: orders.map(orderToDto), meta: paginationMeta(filters.page, filters.limit, total) }
   },
   async get(id: string) { const order = await orderRepository.find(id); if (!order) throw new ApiError(404, "ORDER_NOT_FOUND", "No fue posible encontrar el pedido"); return orderToDto(order) },
+  async verifyAccessToken(id: string, token: string) {
+    if (!token || token.length > 256) return false
+    const order = await orderRepository.find(id)
+    if (!order?.accessTokenHash) return false
+    const actual = tokenHash(token)
+    const expected = Buffer.from(order.accessTokenHash, "hex")
+    return expected.length === actual.length && timingSafeEqual(actual, expected)
+  },
   async create(input: z.infer<typeof createOrderSchema>, customerId: string | null = null) {
     const id = `FE-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+    const accessToken = randomBytes(32).toString("base64url")
+    const accessTokenHash = tokenHash(accessToken).toString("hex")
     await prisma.$transaction(async (tx) => {
       const lines = []
       let tax = 0
@@ -75,12 +87,11 @@ export const orderService = {
       }
       const now = new Date()
       const eta = (days: number) => new Date(now.getTime() + days * 86400000)
-      await tx.order.create({ data: { id, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en TooList", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "TooList recibió la compra y descontó las unidades del inventario.", location: "FERREIA · Bogotá", occurredAt: now }] } } })
+      await tx.order.create({ data: { id, accessTokenHash, customerId, guest: !customerId, customerName: input.customerName, document: input.document, email: input.email, phone: input.phone, subtotal, tax, shippingCost, total: subtotal + tax + shippingCost, paymentMethod: input.paymentMethod, paymentStatus: input.paymentMethod === "Contra entrega" ? "Contra entrega" : "Pendiente", shippingMethod: input.shippingMethod, address: input.address, city: input.city, department: input.department, status: "Pedido confirmado", currentLocation: "Pedido recibido en TooList", estimatedFrom: eta(method.minDays), estimatedTo: eta(method.maxDays), inventoryApplied: true, items: { create: lines }, timeline: { create: [{ id: crypto.randomUUID(), status: "Pedido confirmado", title: "Pedido recibido", detail: "TooList recibió la compra y descontó las unidades del inventario.", location: "FERREIA · Bogotá", occurredAt: now }] } } })
     })
     const order = await this.get(id)
-    if (order.paymentMethod === "Mercado Pago") return order
-    const notification = await sendOrderCreatedEmail(order)
-    return { ...order, notification }
+    const notification = await sendOrderCreatedEmail({ ...order, accessToken })
+    return { ...order, accessToken, notification }
   },
   async update(id: string, input: z.infer<typeof updateOrderSchema>) {
     const existing = await orderRepository.find(id)

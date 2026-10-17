@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 
 type MailOrder = {
   id: string
+  accessToken?: string
   customerName: string
   email: string
   createdAt: string
@@ -33,7 +34,13 @@ const transport = () => { const settings = mailSettings(); return settings.user 
 
 function layout(title: string, lead: string, content: string, order: MailOrder) {
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")
-  return `<!doctype html><html lang="es"><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#172033"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #dbe2ea"><tr><td style="background:#183153;color:#fff;padding:24px 28px"><div style="font-size:24px;font-weight:800;letter-spacing:.5px">FERREIA</div><div style="margin-top:5px;color:#d7e3f4;font-size:13px">Ferretería Digital Inteligente</div></td></tr><tr><td style="padding:28px"><div style="font-size:12px;font-weight:700;color:#a34b00;text-transform:uppercase;letter-spacing:1px">Pedido ${escapeHtml(order.id)}</div><h1 style="margin:8px 0 10px;font-size:24px;color:#183153">${escapeHtml(title)}</h1><p style="margin:0 0 22px;line-height:1.6;color:#526176">${escapeHtml(lead)}</p>${content}<div style="margin-top:24px;padding:16px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0"><strong>Consultar seguimiento</strong><p style="margin:6px 0 12px;color:#526176;font-size:13px">Usa el pedido <b>${escapeHtml(order.id)}</b> y el correo donde recibiste este mensaje.</p><a href="${escapeHtml(`${appUrl}/rastrear-pedido?pedido=${encodeURIComponent(order.id)}`)}" style="display:inline-block;background:#e89b2c;color:#172033;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:8px">Rastrear pedido</a></div></td></tr><tr><td style="padding:18px 28px;background:#f8fafc;color:#64748b;font-size:12px">Este correo fue generado automáticamente por FERREIA.</td></tr></table></td></tr></table></body></html>`
+  const trackingUrl = order.accessToken
+    ? `${appUrl}/rastrear-pedido?pedido=${encodeURIComponent(order.id)}#token=${encodeURIComponent(order.accessToken)}`
+    : `${appUrl}/mi-cuenta`
+  const trackingLead = order.accessToken
+    ? "Este enlace contiene una credencial privada de seguimiento. No lo compartas."
+    : "Ingresa a tu cuenta para consultar el pedido de forma segura."
+  return `<!doctype html><html lang="es"><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#172033"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:28px 12px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #dbe2ea"><tr><td style="background:#183153;color:#fff;padding:24px 28px"><div style="font-size:24px;font-weight:800;letter-spacing:.5px">FERREIA</div><div style="margin-top:5px;color:#d7e3f4;font-size:13px">Ferretería Digital Inteligente</div></td></tr><tr><td style="padding:28px"><div style="font-size:12px;font-weight:700;color:#a34b00;text-transform:uppercase;letter-spacing:1px">Pedido ${escapeHtml(order.id)}</div><h1 style="margin:8px 0 10px;font-size:24px;color:#183153">${escapeHtml(title)}</h1><p style="margin:0 0 22px;line-height:1.6;color:#526176">${escapeHtml(lead)}</p>${content}<div style="margin-top:24px;padding:16px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0"><strong>Consultar seguimiento</strong><p style="margin:6px 0 12px;color:#526176;font-size:13px">${escapeHtml(trackingLead)}</p><a href="${escapeHtml(trackingUrl)}" style="display:inline-block;background:#e89b2c;color:#172033;text-decoration:none;font-weight:700;padding:10px 16px;border-radius:8px">Rastrear pedido</a></div></td></tr><tr><td style="padding:18px 28px;background:#f8fafc;color:#64748b;font-size:12px">Este correo fue generado automáticamente por FERREIA.</td></tr></table></td></tr></table></body></html>`
 }
 
 function productsTable(order: MailOrder) {

@@ -292,6 +292,7 @@ model AuthSession {
 
 model Order {
   id                String       @id
+  accessTokenHash   String?      @unique
   customerId        String?
   customer          Customer?    @relation(fields: [customerId], references: [id])
   guest             Boolean

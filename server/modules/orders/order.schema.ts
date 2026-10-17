@@ -4,12 +4,12 @@ import { ORDER_STATUSES } from "@/lib/orders"
 
 export const orderFiltersSchema = paginationSchema.extend({ status: z.enum(ORDER_STATUSES).optional(), search: z.string().max(120).optional() })
 export const createOrderSchema = z.object({
-  customerId: z.string().nullable().optional(), guest: z.boolean(), customerName: z.string().trim().min(2),
-  document: z.string().trim().min(3), email: z.email(), phone: z.string().trim().min(5),
-  items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive() })).min(1),
-  paymentMethod: z.string().trim().min(1), paymentStatus: z.enum(["Pendiente", "Pagado", "Contra entrega"]),
-  shippingMethod: z.enum(["Estándar", "Express"]), address: z.string().trim().min(5),
-  city: z.string().trim().min(2), department: z.string().trim().min(2),
+  customerId: z.string().max(128).nullable().optional(), guest: z.boolean(), customerName: z.string().trim().min(2).max(120),
+  document: z.string().trim().min(3).max(40), email: z.email().max(254), phone: z.string().trim().min(5).max(30),
+  items: z.array(z.object({ productId: z.string().min(1).max(128), quantity: z.number().int().min(1).max(1_000) })).min(1).max(100),
+  paymentMethod: z.enum(["Mercado Pago", "Contra entrega"]), paymentStatus: z.enum(["Pendiente", "Pagado", "Contra entrega"]),
+  shippingMethod: z.enum(["Estándar", "Express"]), address: z.string().trim().min(5).max(250),
+  city: z.string().trim().min(2).max(100), department: z.string().trim().min(2).max(100),
 }).strict()
 export const updateOrderSchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(), paymentStatus: z.enum(["Pendiente", "Pagado", "Contra entrega", "Reembolsado", "Rechazado"]).optional(),

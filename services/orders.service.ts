@@ -23,6 +23,6 @@ export async function getAllOrders(filters: Omit<OrderFilters, "page" | "limit">
 }
 
 export async function getMyOrders() { return apiRequest<FerreiaOrder[]>("/api/orders/mine") }
-export async function getOrderById(id: string, email?: string) { return apiRequest<FerreiaOrder>(`/api/orders/${encodeURIComponent(id)}${email ? `?email=${encodeURIComponent(email)}` : ""}`) }
+export async function getOrderById(id: string, accessToken?: string) { return apiRequest<FerreiaOrder>(`/api/orders/${encodeURIComponent(id)}`, { headers: accessToken ? { "X-Order-Access-Token": accessToken } : undefined }) }
 export async function createOrder(input: unknown) { return apiRequest<FerreiaOrder>("/api/orders", { method: "POST", body: JSON.stringify(input) }) }
 export async function updateOrder(id: string, patch: unknown) { return apiRequest<FerreiaOrder>(`/api/orders/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }) }

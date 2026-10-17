@@ -17,6 +17,18 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    cpus: "2.0"
+    mem_limit: 4g
+    networks:
+      - backend
 
   ollama-pull:
     image: ollama/ollama:latest
@@ -28,6 +40,19 @@ services:
       OLLAMA_HOST: ollama:11434
     entrypoint: ["ollama"]
     command: ["pull", "${OLLAMA_MODEL:-qwen2.5vl:3b}"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    cpus: "1.0"
+    mem_limit: 2g
+    networks:
+      - backend
+      - model-egress
 
   app:
     depends_on:
@@ -38,3 +63,6 @@ services:
 
 volumes:
   ollama_data:
+
+networks:
+  model-egress:

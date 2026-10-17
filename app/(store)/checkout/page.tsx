@@ -22,16 +22,16 @@ import { rememberLastCustomerOrder } from "@/lib/customer-experience"
 import { getGiftQuote, type GiftQuote } from "@/services/gifts.service"
 
 type CustomerForm = { name: string; document: string; email: string; phone: string; address: string; city: string; department: string }
-type PendingPaymentOrder = { id: string; email: string }
+type PendingPaymentOrder = { id: string; accessToken: string }
 const emptyForm: CustomerForm = { name: "", document: "", email: "", phone: "", address: "", city: "", department: "" }
 
 function readPendingPaymentOrder() {
   try {
     const value = window.sessionStorage.getItem("ferreia-mercadopago-order")
     if (!value) return null
-    const stored = JSON.parse(value) as { orderId?: unknown; email?: unknown }
-    return typeof stored.orderId === "string" && typeof stored.email === "string"
-      ? { id: stored.orderId, email: stored.email }
+    const stored = JSON.parse(value) as { orderId?: unknown; accessToken?: unknown }
+    return typeof stored.orderId === "string" && typeof stored.accessToken === "string"
+      ? { id: stored.orderId, accessToken: stored.accessToken }
       : null
   } catch { return null }
 }
@@ -78,7 +78,7 @@ export default function CheckoutPage() {
       busy = true
       setCheckingPayment(true)
       try {
-        const result = await getMercadoPagoOrderStatus(pendingPaymentOrder.id, pendingPaymentOrder.email)
+        const result = await getMercadoPagoOrderStatus(pendingPaymentOrder.id, pendingPaymentOrder.accessToken)
         if (!active) return
         if (result.data.paymentStatus === "Pagado" && result.data.paymentId) {
           try { paymentTab.current?.close() } catch { /* La pestaña puede estar aislada por el navegador. */ }
@@ -128,8 +128,8 @@ export default function CheckoutPage() {
   }
 
   async function redirectToMercadoPago(order: PendingPaymentOrder, tab: Window | null) {
-    window.sessionStorage.setItem("ferreia-mercadopago-order", JSON.stringify({ orderId: order.id, email: order.email }))
-    const checkout = await createMercadoPagoCheckout(order.id, order.email)
+    window.sessionStorage.setItem("ferreia-mercadopago-order", JSON.stringify({ orderId: order.id, accessToken: order.accessToken }))
+    const checkout = await createMercadoPagoCheckout(order.id, order.accessToken)
     if (tab) {
       if (tab.closed) throw new Error("La pestaña de Mercado Pago se cerró. Puedes reintentar el pago.")
       tab.location.replace(checkout.data.checkoutUrl)
@@ -210,7 +210,7 @@ export default function CheckoutPage() {
       city: result.order.city,
     })
     if (payment === "mercadopago") {
-      const pendingOrder = { id: result.order.id, email: result.order.email }
+      const pendingOrder = { id: result.order.id, accessToken: result.order.accessToken ?? "" }
       setPendingPaymentOrder(pendingOrder)
       try {
         await redirectToMercadoPago(pendingOrder, tab)
