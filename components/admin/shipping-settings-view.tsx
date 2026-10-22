@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BadgeDollarSign, Box, CheckCircle2, MapPinned, PackageCheck, Save, Truck } from "lucide-react"
+import { BadgeDollarSign, Box, CheckCircle2, MapPinned, Save, Truck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -16,15 +16,29 @@ import { getShippingSettings, saveShippingSettings } from "@/services/shipping.s
 export function ShippingSettingsView() {
   const [settings, setSettings] = useState<ShippingSettings>(initialShippingSettings)
   const [saved, setSaved] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [preview, setPreview] = useState({ subtotal: 98000, quantity: 4, department: "Bogotá D.C.", method: "standard" as ShippingMethodId })
-  useEffect(() => { getShippingSettings().then((result) => setSettings(result.data)).catch(() => {}) }, [])
+  useEffect(() => {
+    let active = true
+    getShippingSettings()
+      .then((result) => { if (active) { setSettings(result.data); setError("") } })
+      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "No fue posible cargar la configuración de envíos") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const quote = calculateShipping(settings, preview)
   const progress = freeShippingProgress(settings, preview.subtotal, preview.quantity)
 
   async function save() {
+    setError("")
+    if (settings.enabled && !settings.standard.active && !settings.express.active) { setError("Activa al menos un método de entrega."); return }
+    if (settings.freeShipping.enabled && !settings.freeShipping.byAmount && !settings.freeShipping.byQuantity) { setError("Selecciona al menos una condición para el envío gratis."); return }
+    if (settings.standard.maxDays < settings.standard.minDays || settings.express.maxDays < settings.express.minDays) { setError("En cada método, los días hasta deben ser iguales o mayores que los días desde."); return }
+    if (settings.enabled && !settings.zones.some((zone) => zone.active)) { setError("Activa al menos una zona de cobertura."); return }
     try { const result = await saveShippingSettings(settings); setSettings(result.data); window.dispatchEvent(new Event(SHIPPING_UPDATED_EVENT)); setSaved(true); window.setTimeout(() => setSaved(false), 2500) }
-    catch { setSaved(false) }
+    catch (reason) { setSaved(false); setError(reason instanceof Error ? reason.message : "No fue posible guardar la configuración de envíos") }
   }
 
   function updateMethod(id: ShippingMethodId, patch: Partial<ShippingSettings[ShippingMethodId]>) {
@@ -32,7 +46,8 @@ export function ShippingSettingsView() {
   }
 
   return <div className="space-y-5">
-    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">Envíos</h1><Badge variant="outline">PostgreSQL</Badge></div><p className="mt-1 text-sm text-muted-foreground">Define costos, cobertura, tiempos y condiciones para obtener envío gratis.</p></div><Button onClick={save}><Save className="mr-2 h-4 w-4" />{saved ? "Configuración guardada" : "Guardar cambios"}</Button></div>
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">Envíos</h1><Badge variant="outline">PostgreSQL</Badge></div><p className="mt-1 text-sm text-muted-foreground">Define costos, cobertura, tiempos y condiciones para obtener envío gratis.</p></div><Button onClick={save} disabled={loading}><Save className="mr-2 h-4 w-4" />{loading ? "Cargando..." : saved ? "Configuración guardada" : "Guardar cambios"}</Button></div>
+    {error && <p role="alert" className="rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Summary icon={Truck} label="Servicio" value={settings.enabled ? "Activo" : "Inactivo"} tone="emerald" /><Summary icon={BadgeDollarSign} label="Tarifa estándar" value={`Desde ${formatCOP(settings.standard.baseCost)}`} tone="sky" /><Summary icon={Box} label="Envío gratis" value={freeRuleSummary(settings)} tone="violet" /><Summary icon={MapPinned} label="Zonas activas" value={String(settings.zones.filter((z) => z.active).length)} tone="amber" /></div>
 

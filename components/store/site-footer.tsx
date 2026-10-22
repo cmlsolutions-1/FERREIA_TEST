@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Phone, Mail, MapPin, Truck, ShieldCheck, CreditCard } from "lucide-react"
 import { CustomerSupport } from "@/components/store/customer-support"
-import { COMPANY } from "@/lib/data"
+import { useAdminSettings } from "@/lib/admin-settings"
 import { getCategories, type CategoryRecord } from "@/services/categories.service"
 
 const FEATURES = [
@@ -15,6 +15,7 @@ const FEATURES = [
 ]
 
 export function SiteFooter() {
+  const company = useAdminSettings()
   const [CATEGORIES, setCategories] = useState<CategoryRecord[]>([])
   useEffect(() => { getCategories().then((result) => setCategories(result.data)).catch(() => {}) }, [])
   return (
@@ -40,18 +41,18 @@ export function SiteFooter() {
             <Image src="/sinFondoBlanco.png" alt="TooList" width={176} height={176} className="h-44 w-44 max-w-none shrink-0" />
           </Link>
           <p className="mt-3 text-sm text-white/70 text-pretty">
-            {COMPANY.tagline}. Herramientas, iluminación, carpintería y ferretería
+            {company.tagline}. Herramientas, iluminación, carpintería y ferretería
             especializada con inteligencia artificial.
           </p>
           <div className="mt-4 space-y-2 text-sm text-white/80">
-            <a href={`tel:${COMPANY.phone.replace(/[^+\d]/g, "")}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
-              <Phone className="h-4 w-4 text-brand-orange" /> {COMPANY.phone}
+            <a href={`tel:${company.phone.replace(/[^+\d]/g, "")}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
+              <Phone className="h-4 w-4 text-brand-orange" /> {company.phone}
             </a>
-            <a href={`mailto:${COMPANY.email}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
-              <Mail className="h-4 w-4 text-brand-orange" /> {COMPANY.email}
+            <a href={`mailto:${company.email}`} className="flex items-center gap-2 transition-colors hover:text-brand-orange">
+              <Mail className="h-4 w-4 text-brand-orange" /> {company.email}
             </a>
             <p className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-brand-orange" /> {COMPANY.address}
+              <MapPin className="h-4 w-4 text-brand-orange" /> {company.address}
             </p>
           </div>
         </div>

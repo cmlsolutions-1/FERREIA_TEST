@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/sheet"
 import { useCart } from "@/components/cart-provider"
 import { useCustomerSession } from "@/components/customer-session-provider"
-import { COMPANY } from "@/lib/data"
+import { useAdminSettings } from "@/lib/admin-settings"
 import { getCategories, type CategoryRecord } from "@/services/categories.service"
 import { cn } from "@/lib/utils"
 
@@ -57,6 +57,7 @@ function Logo({ className }: { className?: string }) {
 }
 
 export function SiteHeader() {
+  const company = useAdminSettings()
   const [CATEGORIES, setCategories] = useState<CategoryRecord[]>([])
   useEffect(() => { getCategories().then((result) => setCategories(result.data)).catch(() => {}) }, [])
   const router = useRouter()
@@ -134,7 +135,7 @@ export function SiteHeader() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1.5 text-xs">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5">
-              <Phone className="h-3.5 w-3.5 text-brand-orange" /> {COMPANY.phone}
+              <Phone className="h-3.5 w-3.5 text-brand-orange" /> {company.phone}
             </span>
             <span className="flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5 text-brand-orange" /> Envíos a toda Colombia

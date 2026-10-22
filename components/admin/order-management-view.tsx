@@ -41,7 +41,13 @@ export function OrderManagementView() {
     const controller = new AbortController()
     setLoading(true); setLoadError("")
     getOrders({ page, limit: 20, search: debouncedQuery || undefined, status: statusFilter === "Todos" ? undefined : statusFilter }, controller.signal)
-      .then((result) => { setOrders(result.data); setTotal(result.meta?.total ?? result.data.length); setTotalPages(result.meta?.totalPages ?? (result.data.length ? 1 : 0)); setSelectedId((current) => result.data.some((order) => order.id === current) ? current : "") })
+      .then((result) => {
+        setOrders(result.data)
+        setTotal(result.meta?.total ?? result.data.length)
+        setTotalPages(result.meta?.totalPages ?? (result.data.length ? 1 : 0))
+        const requested = new URLSearchParams(window.location.search).get("pedido")?.trim() ?? ""
+        setSelectedId((current) => result.data.some((order) => order.id === current) ? current : result.data.some((order) => order.id === requested) ? requested : "")
+      })
       .catch((error) => { if (!controller.signal.aborted) setLoadError(error instanceof Error ? error.message : "No fue posible cargar los pedidos") })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
@@ -55,6 +61,27 @@ export function OrderManagementView() {
   async function save() {
     if (!selected || !draft || saving) return
     setLoadError(""); setNotification(undefined); setSaving(true)
+    if (draft.estimatedFrom && draft.estimatedTo && draft.estimatedFrom > draft.estimatedTo) {
+      setLoadError("La fecha inicial de entrega no puede ser posterior a la fecha final.")
+      setSaving(false)
+      return
+    }
+    const dispatched = ["Enviado", "En centro de distribución", "En tránsito", "En reparto", "Entregado"].includes(draft.status)
+    if (dispatched && draft.carrier === "Por asignar") {
+      setLoadError("Asigna una transportadora antes de marcar el pedido como enviado.")
+      setSaving(false)
+      return
+    }
+    if (dispatched && draft.carrier !== "Mensajero local" && !draft.trackingNumber.trim()) {
+      setLoadError("Ingresa el número de guía para que el cliente pueda rastrear el envío.")
+      setSaving(false)
+      return
+    }
+    if (dispatched && !draft.currentLocation.trim()) {
+      setLoadError("Indica la ubicación actual del pedido.")
+      setSaving(false)
+      return
+    }
     try {
       const updated = await updateOrder(selected.id, draft, eventDetail)
       setOrders((current) => current.map((order) => order.id === updated.id ? updated : order))
@@ -73,7 +100,7 @@ export function OrderManagementView() {
       <div className="flex flex-col justify-between gap-3 border-b px-5 py-4 sm:flex-row sm:items-center"><div><div className="flex items-center gap-2"><h2 className="text-lg font-bold">Gestionar {selected.id}</h2><Badge variant="outline">{selected.guest ? "Invitado" : "Cliente registrado"}</Badge></div><p className="text-sm text-muted-foreground">{selected.customerName} · {selected.phone} · {selected.email}</p></div><Button onClick={save} disabled={saving}>{saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{saving ? "Guardando y enviando..." : "Guardar y notificar"}</Button></div>
       <CardContent className="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_360px]"><div className="min-w-0 space-y-5">
         {notification && <div role="status" className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ${notification.sent ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{notification.sent ? <MailCheck className="mt-0.5 h-5 w-5 shrink-0" /> : <MailWarning className="mt-0.5 h-5 w-5 shrink-0" />}<div><p className="font-semibold">{notification.sent ? "Pedido actualizado y cliente notificado" : "Pedido actualizado; correo pendiente"}</p><p>{notification.message}</p></div></div>}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="Estado"><Select value={draft.status} onValueChange={(value) => value && setDraft({ ...draft, status: value as OrderStatus })} disabled={selected.status === "Cancelado"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{ORDER_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select></Field><Field label="Transportadora"><Select value={draft.carrier} onValueChange={(value) => value && setDraft({ ...draft, carrier: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CARRIERS.map((carrier) => <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>)}</SelectContent></Select></Field><Field label="Número de guía"><Input value={draft.trackingNumber} onChange={(event) => setDraft({ ...draft, trackingNumber: event.target.value })} placeholder="Pendiente" /></Field><Field label="Entrega desde"><Input type="date" value={draft.estimatedFrom} onChange={(event) => setDraft({ ...draft, estimatedFrom: event.target.value })} /></Field><Field label="Entrega hasta"><Input type="date" value={draft.estimatedTo} onChange={(event) => setDraft({ ...draft, estimatedTo: event.target.value })} /></Field><Field label="Ubicación actual"><Input value={draft.currentLocation} onChange={(event) => setDraft({ ...draft, currentLocation: event.target.value })} placeholder="Centro de distribución..." /></Field></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="Estado"><Select value={draft.status} onValueChange={(value) => value && setDraft((current) => current ? { ...current, status: value as OrderStatus } : current)} disabled={selected.status === "Cancelado"}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{ORDER_STATUSES.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}</SelectContent></Select></Field><Field label="Transportadora"><Select value={draft.carrier} onValueChange={(value) => value && setDraft((current) => current ? { ...current, carrier: value } : current)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CARRIERS.map((carrier) => <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>)}</SelectContent></Select></Field><Field label="Número de guía"><Input value={draft.trackingNumber} onChange={(event) => { const value = event.target.value; setDraft((current) => current ? { ...current, trackingNumber: value } : current) }} placeholder="Pendiente" /></Field><Field label="Entrega desde"><Input type="date" value={draft.estimatedFrom} onChange={(event) => { const value = event.target.value; setDraft((current) => current ? { ...current, estimatedFrom: value } : current) }} /></Field><Field label="Entrega hasta"><Input type="date" value={draft.estimatedTo} onChange={(event) => { const value = event.target.value; setDraft((current) => current ? { ...current, estimatedTo: value } : current) }} /></Field><Field label="Ubicación actual"><Input value={draft.currentLocation} onChange={(event) => { const value = event.target.value; setDraft((current) => current ? { ...current, currentLocation: value } : current) }} placeholder="Centro de distribución..." /></Field></div>
         <Field label="Actualización visible para el cliente"><Textarea value={eventDetail} onChange={(event) => setEventDetail(event.target.value)} placeholder="Ej. El paquete salió del centro logístico y viaja hacia Cali." /></Field>
         <div className="rounded-xl bg-muted/40 p-4"><p className="flex items-center gap-2 font-semibold"><MapPin className="h-4 w-4 text-accent" />Dirección de entrega</p><p className="mt-1 text-sm text-muted-foreground">{selected.address}, {selected.city}, {selected.department}</p></div>
         <OrderProducts order={selected} onShowDocument={() => setShowOrderDocument((current) => !current)} showingDocument={showOrderDocument} />

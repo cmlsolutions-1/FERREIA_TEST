@@ -21,6 +21,7 @@ import { getAllBrands, createBrand as createBrandRequest, updateBrand, type Bran
 import { getAllClassifications, createClassification, updateClassification, type ClassificationKind } from "@/services/classifications.service"
 import { getAllWarehouses, createWarehouse, updateWarehouse } from "@/services/warehouses.service"
 import { getAllSuppliers, type SupplierRecord } from "@/services/suppliers.service"
+import { readAdminSettings } from "@/lib/admin-settings"
 
 const lines = ["Herramientas eléctricas", "Herramientas manuales", "Ferretería", "Iluminación", "Pinturas", "Seguridad industrial", "Carpintería"]
 type CatalogRecord = { id: string; name: string; parentId: string | null; active: boolean }
@@ -29,7 +30,7 @@ const units = ["Unidad", "Caja", "Metro", "Kilogramo", "Litro", "Galón", "Rollo
 type BrandRecord = { id: string; name: string; country: string; active: boolean }
 const emptyWarehouse: WarehouseRecord = { id: "", code: "", name: "", address: "", manager: "", type: "Auxiliar", active: true }
 function toMaster(product: ProductRecord): ProductMaster { return { id: product.sku, reference: product.reference, supplierReference: product.supplierReference, name: product.name, sku: product.sku, barcodes: product.barcodes, categorySlug: product.category, line: product.line, brand: product.brand, group: product.group, subgroup: product.subgroup, productType: product.productType, packaging: product.packaging, priceTiers: product.basePriceTiers ?? product.priceTiers, unit: product.unit, weight: product.weight, cost: product.cost, price: product.basePrice, taxRate: product.taxRate, warehouse: product.warehouse, stock: product.stock, stockMin: product.stockMin, stockMax: product.stockMax, images: product.images, suppliers: product.suppliers, characteristics: product.characteristics, active: product.active, markupPercent: product.markupPercent, costReview: product.costReview } }
-function blank(reference: string, warehouse: string): ProductMaster { return { id: `draft-${Date.now()}`, reference, supplierReference: "", name: "", sku: "", barcodes: [{ presentation: "Unidad", code: "" }, { presentation: "Inner", code: "" }, { presentation: "Master", code: "" }], categorySlug: "", line: lines[0], brand: "", group: "", subgroup: "", productType: "MATERIAL", packaging: { inner: 1, master: 1 }, priceTiers: { unit: { label: "Unidad", quantity: 1, unitPrice: 0 }, inner: { label: "Caja inner", quantity: 1, unitPrice: 0 }, master: { label: "Caja master", quantity: 1, unitPrice: 0 } }, unit: "Unidad", weight: 0, cost: 0, price: 0, markupPercent: readSuggestedMarkup(), taxRate: 19, warehouse, stock: 0, stockMin: 0, stockMax: 0, images: [], suppliers: [], characteristics: "", active: true } }
+function blank(reference: string, warehouse: string): ProductMaster { const settings = readAdminSettings(); return { id: `draft-${Date.now()}`, reference, supplierReference: "", name: "", sku: `${settings.skuPrefix}-${reference}`, barcodes: [{ presentation: "Unidad", code: "" }, { presentation: "Inner", code: "" }, { presentation: "Master", code: "" }], categorySlug: "", line: lines[0], brand: "", group: "", subgroup: "", productType: "MATERIAL", packaging: { inner: 1, master: 1 }, priceTiers: { unit: { label: "Unidad", quantity: 1, unitPrice: 0 }, inner: { label: "Caja inner", quantity: 1, unitPrice: 0 }, master: { label: "Caja master", quantity: 1, unitPrice: 0 } }, unit: "Unidad", weight: 0, cost: 0, price: 0, markupPercent: readSuggestedMarkup(), taxRate: settings.taxRate, warehouse, stock: 0, stockMin: settings.stockAlertThreshold, stockMax: 0, images: [], suppliers: [], characteristics: "", active: true } }
 
 export function ProductCatalogView() {
   const [products, setProducts] = useState<ProductMaster[]>([]); const [warehouses, setWarehouses] = useState<WarehouseRecord[]>([])
@@ -40,10 +41,11 @@ export function ProductCatalogView() {
   const [apiCategories, setApiCategories] = useState<ApiCategory[]>([])
   const [apiBrands, setApiBrands] = useState<ApiBrand[]>([])
   const [apiSuppliers, setApiSuppliers] = useState<SupplierRecord[]>([])
+  const [loading, setLoading] = useState(true)
   const [saveError, setSaveError] = useState("")
   const [productError, setProductError] = useState<ProductFormError | null>(null)
   useEffect(() => { setProductError(null) }, [form])
-  useEffect(() => { let active = true; Promise.all([getAllProducts({ admin: true }), getAllCategories(true), getAllBrands(), getAllWarehouses(), getAllClassifications(), getAllSuppliers()]).then(([items, categories, remoteBrands, remoteWarehouses, classifications, remoteSuppliers]) => { if (!active) return; setProducts(items.map(toMaster)); setApiCategories(categories); setApiBrands(remoteBrands); setApiSuppliers(remoteSuppliers); setBrands(remoteBrands.map(({ id, name, country, active }) => ({ id, name, country, active }))); setWarehouses(remoteWarehouses); setLineCatalog(classifications.filter((item) => item.kind === "LINE")); setGroupCatalog(classifications.filter((item) => item.kind === "GROUP")); setSubgroupCatalog(classifications.filter((item) => item.kind === "SUBGROUP")) }).catch((error) => { if (active) setSaveError(error instanceof Error ? error.message : "No fue posible cargar los artículos") }); return () => { active = false } }, [])
+  useEffect(() => { let active = true; Promise.all([getAllProducts({ admin: true }), getAllCategories(true), getAllBrands(), getAllWarehouses(), getAllClassifications(), getAllSuppliers()]).then(([items, categories, remoteBrands, remoteWarehouses, classifications, remoteSuppliers]) => { if (!active) return; setProducts(items.map(toMaster)); setApiCategories(categories); setApiBrands(remoteBrands); setApiSuppliers(remoteSuppliers); setBrands(remoteBrands.map(({ id, name, country, active }) => ({ id, name, country, active }))); setWarehouses(remoteWarehouses); setLineCatalog(classifications.filter((item) => item.kind === "LINE")); setGroupCatalog(classifications.filter((item) => item.kind === "GROUP")); setSubgroupCatalog(classifications.filter((item) => item.kind === "SUBGROUP")) }).catch((error) => { if (active) setSaveError(error instanceof Error ? error.message : "No fue posible cargar los artículos") }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [])
   const filtered = useMemo(() => { const q = query.toLowerCase(); return products.filter((p) => !q || [p.reference, p.supplierReference, p.name, p.sku, p.brand, ...p.barcodes.map((b) => b.code)].some((v) => v.toLowerCase().includes(q))) }, [products, query])
   function persistProducts(next: ProductMaster[]) { setProducts(next); window.dispatchEvent(new Event(PRODUCT_UPDATED_EVENT)) }
   async function toggleProduct(product: ProductMaster) { try { const result = await updateProduct(product.sku, { active: !product.active }); const saved = toMaster(result.data); persistProducts(products.map((item) => item.sku === product.sku ? saved : item)) } catch (error) { setSaveError(error instanceof Error ? error.message : "No fue posible cambiar el estado") } }
@@ -69,11 +71,10 @@ export function ProductCatalogView() {
     return false
   }
   async function createBrand(e: React.FormEvent) { e.preventDefault(); if (!brandName.trim()) return; try { const result = await createBrandRequest({ name: brandName.trim(), country: brandCountry.trim() }); setBrands((current) => [...current, result.data]); setApiBrands((current) => [...current, result.data]); setBrandName(""); setBrandCountry(""); setSaveError("") } catch (error) { setSaveError(error instanceof Error ? error.message : "No fue posible crear la marca") } }
-  function create() { setProductError(null); setEditingId(null); setForm(blank(nextReference(products), warehouses.find((w) => w.active)?.name ?? "")) }
+  function create() { if (loading) return; setProductError(null); setEditingId(null); setForm(blank(nextReference(products), warehouses.find((w) => w.active)?.name ?? "")) }
   function editProduct(product: ProductMaster) { setProductError(null); setViewing(null); setEditingId(product.id); setForm(structuredClone(product)) }
   function createFromViewer() { setViewing(null); create() }
-  async function saveProduct(e: React.FormEvent) {
-    e.preventDefault()
+  async function saveProduct() {
     if (!form) return
     const category = apiCategories.find((item) => item.slug === form.categorySlug && item.active)
     const brand = apiBrands.find((item) => item.name === form.brand)
@@ -117,7 +118,7 @@ export function ProductCatalogView() {
     <TabsContent value="articulos" className="space-y-4"><div className="grid gap-3 sm:grid-cols-3"><Summary icon={Boxes} label="Artículos registrados" value={products.length} /><Summary icon={Barcode} label="Códigos de barras" value={products.reduce((s, p) => s + p.barcodes.length, 0)} /><Summary icon={Building2} label="Bodegas habilitadas" value={warehouses.filter((w) => w.active).length} /></div>
       {viewing && <ProductViewer product={viewing} close={() => setViewing(null)} edit={() => editProduct(viewing)} create={createFromViewer} />}
       {form && <ProductFormWizard form={form} setForm={setForm} error={productError} categories={apiCategories} warehouses={warehouses} brands={brands} availableSuppliers={apiSuppliers} lines={lineCatalog} groups={groupCatalog} subgroups={subgroupCatalog} editing={!!editingId} cancel={() => setForm(null)} submit={saveProduct} />}
-      <Card><CardContent className="space-y-4 p-4"><div className="flex flex-col gap-3 lg:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Buscar referencia, artículo, SKU, marca o código de barras..." value={query} onChange={(e) => setQuery(e.target.value)} /></div><Button onClick={create}><Plus className="mr-2 h-4 w-4" />Nuevo artículo</Button></div><div className="catalog-table-scroll min-w-0 overflow-auto rounded-lg border border-border"><Table className="min-w-max" containerClassName="overflow-visible rounded-none border-0"><TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_var(--border)]"><TableRow><TableHead>Referencia</TableHead><TableHead>Artículo</TableHead><TableHead>Clasificación</TableHead><TableHead>Empaque</TableHead><TableHead className="text-right">Costo</TableHead><TableHead className="text-right">Venta</TableHead><TableHead className="text-right">Ganancia %</TableHead><TableHead className="text-right">Ganancia / und.</TableHead><TableHead>Bodega</TableHead><TableHead>Estado</TableHead><TableHead /></TableRow></TableHeader><TableBody>{filtered.map((p) => <TableRow key={p.id} className={!p.active ? "opacity-60" : ""}><TableCell><p className="font-mono font-bold">{p.reference}</p><p className="text-xs text-muted-foreground">{p.supplierReference || "Sin ref. proveedor"}</p></TableCell><TableCell><p className="max-w-72 truncate font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.sku} · {p.brand || "Sin marca"} · {p.barcodes.length} códigos</p>{p.costReview?.pending && <p className="mt-1 max-w-64 text-xs font-medium text-amber-700">Costo {p.costReview.newCost > p.costReview.previousCost ? "aumentó" : "disminuyó"} de {formatCOP(p.costReview.previousCost)} a {formatCOP(p.costReview.newCost)}. Revisar precio de venta.</p>}</TableCell><TableCell><p className="text-sm">{p.line}</p><p className="text-xs text-muted-foreground">{p.group} / {p.subgroup}</p><Badge variant="outline" className="mt-1">{PRODUCT_TYPE_LABELS[p.productType]}</Badge></TableCell><TableCell className="text-xs"><p>Inner {p.priceTiers.inner.quantity} · {formatCOP(p.priceTiers.inner.unitPrice)}/und</p><p>Master {p.priceTiers.master.quantity} · {formatCOP(p.priceTiers.master.unitPrice)}/und</p></TableCell><ProductPricingCells product={p} /><TableCell>{p.warehouse}</TableCell><TableCell><Badge variant="secondary" className={p.active ? "bg-emerald-50 text-emerald-700" : ""}>{p.active ? "Activo" : "Inactivo"}</Badge></TableCell><TableCell><DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setViewing(p)}><Eye className="h-4 w-4" />Ver artículo</DropdownMenuItem><DropdownMenuItem onClick={() => editProduct(p)}><Pencil className="h-4 w-4" />Editar ficha</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => toggleProduct(p)}><Power className="h-4 w-4" />{p.active ? "Inactivar" : "Activar"}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>
+      <Card><CardContent className="space-y-4 p-4"><div className="flex flex-col gap-3 lg:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Buscar referencia, artículo, SKU, marca o código de barras..." value={query} onChange={(e) => setQuery(e.target.value)} /></div><Button onClick={create} disabled={loading}><Plus className="mr-2 h-4 w-4" />{loading ? "Cargando catálogo..." : "Nuevo artículo"}</Button></div><div className="catalog-table-scroll min-w-0 overflow-auto rounded-lg border border-border"><Table className="min-w-max" containerClassName="overflow-visible rounded-none border-0"><TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_var(--border)]"><TableRow><TableHead>Referencia</TableHead><TableHead>Artículo</TableHead><TableHead>Clasificación</TableHead><TableHead>Empaque</TableHead><TableHead className="text-right">Costo</TableHead><TableHead className="text-right">Venta</TableHead><TableHead className="text-right">Ganancia %</TableHead><TableHead className="text-right">Ganancia / und.</TableHead><TableHead>Bodega</TableHead><TableHead>Estado</TableHead><TableHead /></TableRow></TableHeader><TableBody>{filtered.map((p) => <TableRow key={p.id} className={!p.active ? "opacity-60" : ""}><TableCell><p className="font-mono font-bold">{p.reference}</p><p className="text-xs text-muted-foreground">{p.supplierReference || "Sin ref. proveedor"}</p></TableCell><TableCell><p className="max-w-72 truncate font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.sku} · {p.brand || "Sin marca"} · {p.barcodes.length} códigos</p>{p.costReview?.pending && <p className="mt-1 max-w-64 text-xs font-medium text-amber-700">Costo {p.costReview.newCost > p.costReview.previousCost ? "aumentó" : "disminuyó"} de {formatCOP(p.costReview.previousCost)} a {formatCOP(p.costReview.newCost)}. Revisar precio de venta.</p>}</TableCell><TableCell><p className="text-sm">{p.line}</p><p className="text-xs text-muted-foreground">{p.group} / {p.subgroup}</p><Badge variant="outline" className="mt-1">{PRODUCT_TYPE_LABELS[p.productType]}</Badge></TableCell><TableCell className="text-xs"><p>Inner {p.priceTiers.inner.quantity} · {formatCOP(p.priceTiers.inner.unitPrice)}/und</p><p>Master {p.priceTiers.master.quantity} · {formatCOP(p.priceTiers.master.unitPrice)}/und</p></TableCell><ProductPricingCells product={p} /><TableCell>{p.warehouse}</TableCell><TableCell><Badge variant="secondary" className={p.active ? "bg-emerald-50 text-emerald-700" : ""}>{p.active ? "Activo" : "Inactivo"}</Badge></TableCell><TableCell><DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon" />}><MoreHorizontal className="h-4 w-4" /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => setViewing(p)}><Eye className="h-4 w-4" />Ver artículo</DropdownMenuItem><DropdownMenuItem onClick={() => editProduct(p)}><Pencil className="h-4 w-4" />Editar ficha</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={() => toggleProduct(p)}><Power className="h-4 w-4" />{p.active ? "Inactivar" : "Activar"}</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></Table></div></CardContent></Card>
     </TabsContent><TabsContent value="clasificacion"><ClassificationPanel lines={lineCatalog} groups={groupCatalog} subgroups={subgroupCatalog} persist={persistClassifications} /></TabsContent><TabsContent value="marcas"><BrandsPanel brands={brands} name={brandName} country={brandCountry} setName={setBrandName} setCountry={setBrandCountry} create={createBrand} persist={persistBrands} /></TabsContent><TabsContent value="bodegas"><WarehousePanel warehouses={warehouses} form={warehouseForm} setForm={setWarehouseForm} save={saveWarehouse} persist={persistWarehouses} /></TabsContent>
   </Tabs></div>
 }
@@ -134,6 +135,60 @@ function ProductPricingCells({ product }: { product: ProductMaster }) {
 }
 function Field({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) { return <div className={`space-y-1.5 ${wide ? "md:col-span-2" : ""}`}><Label>{label}</Label>{children}</div> }
 function Title({ number, children }: { number: string; children: React.ReactNode }) { return <div className="mb-4 flex items-center gap-2"><span className="rounded bg-primary px-2 py-1 text-xs font-bold text-primary-foreground">{number}</span><h3 className="font-semibold">{children}</h3></div> }
+
+type NumericInputProps = Omit<React.ComponentProps<typeof Input>, "type" | "value" | "onChange"> & {
+  value: number
+  onValueChange: (value: number) => void
+  integer?: boolean
+  emptyValue?: number
+}
+
+function NumericInput({ value, onValueChange, integer = false, emptyValue = 0, min, max, onFocus, onBlur, ...props }: NumericInputProps) {
+  const [draft, setDraft] = useState("")
+  const [editing, setEditing] = useState(false)
+
+  function normalize(rawValue: string) {
+    const parsedValue = Number(rawValue)
+    let nextValue = rawValue.trim() === "" || !Number.isFinite(parsedValue) ? emptyValue : parsedValue
+    if (integer) nextValue = Math.trunc(nextValue)
+
+    const minimum = min === undefined ? undefined : Number(min)
+    const maximum = max === undefined ? undefined : Number(max)
+    if (minimum !== undefined && Number.isFinite(minimum)) nextValue = Math.max(minimum, nextValue)
+    if (maximum !== undefined && Number.isFinite(maximum)) nextValue = Math.min(maximum, nextValue)
+    return nextValue
+  }
+
+  return <Input
+    {...props}
+    type="number"
+    inputMode={integer ? "numeric" : "decimal"}
+    min={min}
+    max={max}
+    value={editing ? draft : String(value)}
+    onFocus={(event) => {
+      setDraft(event.currentTarget.value)
+      setEditing(true)
+      event.currentTarget.select()
+      onFocus?.(event)
+    }}
+    onChange={(event) => {
+      const nextDraft = event.target.value
+      setDraft(nextDraft)
+      if (nextDraft.trim() === "") return
+
+      const parsedValue = Number(nextDraft)
+      if (Number.isFinite(parsedValue)) onValueChange(integer ? Math.trunc(parsedValue) : parsedValue)
+    }}
+    onBlur={(event) => {
+      const normalizedValue = normalize(draft)
+      setDraft(String(normalizedValue))
+      setEditing(false)
+      onValueChange(normalizedValue)
+      onBlur?.(event)
+    }}
+  />
+}
 
 function ProductViewer({ product, close, edit, create }: { product: ProductMaster; close: () => void; edit: () => void; create: () => void }) {
   const details = [
@@ -161,7 +216,7 @@ function ProductViewer({ product, close, edit, create }: { product: ProductMaste
   </div>
 }
 
-type ProductFormProps = { form: ProductMaster; setForm: React.Dispatch<React.SetStateAction<ProductMaster | null>>; error: ProductFormError | null; categories: ApiCategory[]; warehouses: WarehouseRecord[]; brands: BrandRecord[]; availableSuppliers: SupplierRecord[]; lines: CatalogRecord[]; groups: CatalogRecord[]; subgroups: CatalogRecord[]; editing: boolean; cancel: () => void; submit: (e: React.FormEvent) => void }
+type ProductFormProps = { form: ProductMaster; setForm: React.Dispatch<React.SetStateAction<ProductMaster | null>>; error: ProductFormError | null; categories: ApiCategory[]; warehouses: WarehouseRecord[]; brands: BrandRecord[]; availableSuppliers: SupplierRecord[]; lines: CatalogRecord[]; groups: CatalogRecord[]; subgroups: CatalogRecord[]; editing: boolean; cancel: () => void; submit: () => void | Promise<void> }
 const productSteps = [
   { value: "identificacion", label: "Identificación" },
   { value: "presentacion", label: "Presentación e inventario" },
@@ -213,7 +268,7 @@ function ProductFormWizard({ form, setForm, error, categories, warehouses, brand
         <Button type="button" variant="ghost" size="icon" disabled={uploadingImages} onClick={cancel}><X className="h-5 w-5" /></Button>
       </div>
       {error && <div role="alert" className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800 sm:px-6"><p className="font-semibold">No se pudo guardar el artículo. Revisa lo siguiente:</p><ul className="mt-1 max-h-24 list-disc space-y-0.5 overflow-y-auto pl-5">{error.messages.map((message) => <li key={message}>{message}</li>)}</ul></div>}
-      <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
+      <form onSubmit={(event) => event.preventDefault()} noValidate className="flex min-h-0 flex-1 flex-col">
         <Tabs value={step} onValueChange={(value) => value && setStep(value)} className="flex min-h-0 flex-1 flex-col">
           <div className="overflow-x-auto border-b bg-muted/30 px-4 py-3 sm:px-6"><TabsList className="h-auto min-w-max">
             {productSteps.map((item, index) => <TabsTrigger key={item.value} value={item.value} className="gap-2"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-background text-[10px] font-bold shadow-sm">{String(index + 1).padStart(2, "0")}</span>{item.label}</TabsTrigger>)}
@@ -236,36 +291,36 @@ function ProductFormWizard({ form, setForm, error, categories, warehouses, brand
             </TabsContent>
             <TabsContent value="presentacion" className="mt-0"><Title number="02">Presentación, precios e inventario</Title>{form.costReview?.pending && <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800"><p>El costo cambió de {formatCOP(form.costReview.previousCost)} a {formatCOP(form.costReview.newCost)} en la factura {form.costReview.invoiceNumber}. Revisa el precio de venta.</p><Button type="button" size="sm" variant="outline" onClick={() => setForm({ ...form, costReview: reviewed })}>Mantener precio y aprobar revisión</Button></div>}<p className="mb-4 text-sm text-muted-foreground">La ganancia % se calcula sobre el costo: (venta − costo) ÷ costo. Al cambiar costo o porcentaje se sugiere un precio; al escribir el precio se recalcula el porcentaje.</p><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <Field label="Unidad de medida"><Select value={form.unit} onValueChange={(value) => value && update("unit", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{units.map((unit) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="Peso (kg)"><Input type="number" step="0.001" min="0" value={form.weight} onChange={(e) => update("weight", +e.target.value)} /></Field>
-              <Field label="Costo unitario"><Input type="number" min="0" value={form.cost} onChange={(e) => updateCost(+e.target.value)} /></Field>
-              <Field label="Ganancia sobre costo (%)"><Input type="number" min="-100" max="1000" step="0.01" value={Number(currentMarkup.toFixed(2))} onChange={(e) => updateMarkup(+e.target.value)} /></Field>
-              <Field label="Precio unitario *"><Input type="number" min="0.01" step="0.01" value={form.price} onChange={(e) => updatePrice(+e.target.value)} required /></Field>
+              <Field label="Peso (kg)"><NumericInput step="0.001" min="0" value={form.weight} onValueChange={(value) => update("weight", value)} /></Field>
+              <Field label="Costo unitario"><NumericInput step="0.01" min="0" value={form.cost} onValueChange={updateCost} /></Field>
+              <Field label="Ganancia sobre costo (%)"><NumericInput min="-100" max="1000" step="0.01" value={Number(currentMarkup.toFixed(2))} onValueChange={updateMarkup} /></Field>
+              <Field label="Precio unitario *"><NumericInput min="0.01" step="0.01" value={form.price} onValueChange={updatePrice} required /></Field>
               <div className="rounded-lg border bg-muted/30 p-3 text-sm"><p className="text-muted-foreground">Ganancia por unidad</p><p className="mt-1 font-bold">{formatCOP(unitProfit(form.cost, form.price))}</p></div>
               <div className="col-span-full rounded-xl border bg-muted/20 p-4">
                 <div className="mb-4"><p className="font-semibold">Precios por presentación</p><p className="text-xs text-muted-foreground">Define manualmente el precio por unidad para cada empaque. El total de la caja es informativo y corresponde a cantidad × precio.</p></div>
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <Field label="Inner (unidades) *"><Input type="number" min="1" value={form.priceTiers.inner.quantity} onChange={(e) => updatePackaging("inner", +e.target.value)} required /></Field>
-                    <Field label="Precio por unidad Inner *"><Input type="number" min="0.01" step="0.01" value={form.priceTiers.inner.unitPrice} onChange={(e) => updateTierPrice("inner", +e.target.value)} required /></Field>
+                    <Field label="Inner (unidades) *"><NumericInput integer emptyValue={1} min="1" value={form.priceTiers.inner.quantity} onValueChange={(value) => updatePackaging("inner", value)} required /></Field>
+                    <Field label="Precio por unidad Inner *"><NumericInput min="0.01" step="0.01" value={form.priceTiers.inner.unitPrice} onValueChange={(value) => updateTierPrice("inner", value)} required /></Field>
                     <div className="min-w-36 rounded-lg bg-muted/50 p-3 text-sm"><p className="text-xs text-muted-foreground">Total caja Inner</p><p className="mt-1 font-bold">{formatCOP(form.priceTiers.inner.quantity * form.priceTiers.inner.unitPrice)}</p></div>
                   </div>
                   <div className="grid gap-3 rounded-lg border bg-background p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                    <Field label="Master (unidades) *"><Input type="number" min="1" value={form.priceTiers.master.quantity} onChange={(e) => updatePackaging("master", +e.target.value)} required /></Field>
-                    <Field label="Precio por unidad Master *"><Input type="number" min="0.01" step="0.01" value={form.priceTiers.master.unitPrice} onChange={(e) => updateTierPrice("master", +e.target.value)} required /></Field>
+                    <Field label="Master (unidades) *"><NumericInput integer emptyValue={1} min="1" value={form.priceTiers.master.quantity} onValueChange={(value) => updatePackaging("master", value)} required /></Field>
+                    <Field label="Precio por unidad Master *"><NumericInput min="0.01" step="0.01" value={form.priceTiers.master.unitPrice} onValueChange={(value) => updateTierPrice("master", value)} required /></Field>
                     <div className="min-w-36 rounded-lg bg-muted/50 p-3 text-sm"><p className="text-xs text-muted-foreground">Total caja Master</p><p className="mt-1 font-bold">{formatCOP(form.priceTiers.master.quantity * form.priceTiers.master.unitPrice)}</p></div>
                   </div>
                 </div>
               </div>
               <Field label="IVA"><Select value={String(form.taxRate)} onValueChange={(value) => value && update("taxRate", +value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">0% / Excluido</SelectItem><SelectItem value="5">IVA 5%</SelectItem><SelectItem value="19">IVA 19%</SelectItem></SelectContent></Select></Field>
               <Field label="Bodega principal"><Select value={form.warehouse} onValueChange={(value) => value && update("warehouse", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{warehouses.filter((item) => item.active).map((item) => <SelectItem key={item.id} value={item.name}>{item.name}</SelectItem>)}</SelectContent></Select></Field>
-              <Field label="Stock inicial"><Input type="number" min="0" value={form.stock} onChange={(e) => update("stock", +e.target.value)} /></Field><Field label="Stock mínimo"><Input type="number" min="0" value={form.stockMin} onChange={(e) => update("stockMin", +e.target.value)} /></Field><Field label="Stock máximo"><Input type="number" min="0" value={form.stockMax} onChange={(e) => update("stockMax", +e.target.value)} /></Field>
+              <Field label="Stock inicial"><NumericInput integer min="0" value={form.stock} onValueChange={(value) => update("stock", value)} /></Field><Field label="Stock mínimo"><NumericInput integer min="0" value={form.stockMin} onValueChange={(value) => update("stockMin", value)} /></Field><Field label="Stock máximo"><NumericInput integer min="0" value={form.stockMax} onValueChange={(value) => update("stockMax", value)} /></Field>
             </div></TabsContent>
             <TabsContent value="codigos" className="mt-0"><Title number="03">Códigos de barras</Title><div className="space-y-3">{form.barcodes.map((barcode, index) => <div key={index} className="grid gap-2 sm:grid-cols-[180px_1fr_40px]"><Select value={barcode.presentation} onValueChange={(value) => { if (!value) return; const next = [...form.barcodes]; next[index] = { ...barcode, presentation: value as typeof barcode.presentation }; update("barcodes", next) }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Unidad", "Inner", "Master", "Alterno"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select><Input value={barcode.code} onChange={(e) => { const next = [...form.barcodes]; next[index] = { ...barcode, code: e.target.value }; update("barcodes", next) }} placeholder="Código de barras" /><Button type="button" variant="ghost" size="icon" onClick={() => update("barcodes", form.barcodes.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-4 w-4" /></Button></div>)}<Button type="button" variant="outline" size="sm" onClick={() => update("barcodes", [...form.barcodes, { presentation: "Alterno", code: "" }])} disabled={form.barcodes.length >= 10}><Plus className="mr-2 h-4 w-4" />Agregar código</Button></div></TabsContent>
             <TabsContent value="comercial" className="mt-0"><Title number="04">Proveedores y características</Title><div className="grid gap-5 lg:grid-cols-2"><div className="space-y-2"><Label>Proveedores del producto</Label>{availableSuppliers.filter((supplier) => supplier.active).map((supplier) => <label key={supplier.id} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" checked={form.suppliers.includes(supplier.name)} onChange={(e) => update("suppliers", e.target.checked ? [...form.suppliers, supplier.name] : form.suppliers.filter((value) => value !== supplier.name))} /><span><b>{supplier.name}</b><small className="block text-muted-foreground">{supplier.nit}</small></span></label>)}</div><Field label="Características adicionales"><Textarea rows={10} value={form.characteristics} onChange={(e) => update("characteristics", e.target.value)} placeholder="Material, color, dimensiones, compatibilidad, garantía..." /></Field></div></TabsContent>
             <TabsContent value="anexos" className="mt-0"><Title number="05">Anexos e imágenes</Title><div className="rounded-xl border border-dashed p-6"><label className="flex cursor-pointer flex-col items-center justify-center gap-3 py-8 text-center"><span className="rounded-full bg-primary/10 p-4 text-primary"><Upload className="h-7 w-7" /></span><div><p className="font-semibold">Seleccionar imágenes del producto</p><p className="mt-1 text-xs text-muted-foreground">Puedes cargar varias imágenes JPG, PNG o WEBP; máximo 10 archivos.</p></div><input className="hidden" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={uploadingImages || form.images.length >= 10} onChange={(e) => { void readImages(e.target.files); e.currentTarget.value = "" }} /></label></div>{uploadingImages && <p role="status" className="mt-3 text-sm text-muted-foreground">Subiendo imágenes a DigitalOcean Spaces...</p>}{imageError && <p role="alert" className="mt-3 text-sm text-rose-700">{imageError}</p>}<div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">{form.images.map((src, index) => <div key={index} className="group relative aspect-square overflow-hidden rounded-xl border bg-muted"><img src={src} alt={`Anexo ${index + 1}`} className="h-full w-full object-cover" /><div className="absolute inset-x-0 bottom-0 bg-slate-950/65 px-2 py-1 text-[10px] text-white">Imagen {index + 1}{index === 0 ? " · Principal" : ""}</div><button type="button" className="absolute right-2 top-2 rounded-full bg-background/90 p-1.5 opacity-0 shadow group-hover:opacity-100" onClick={() => update("images", form.images.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-3.5 w-3.5 text-rose-600" /></button></div>)}{!form.images.length && <div className="col-span-full flex flex-col items-center py-8 text-muted-foreground"><FileImage className="mb-2 h-8 w-8" /><p className="text-sm">Aún no hay imágenes anexadas.</p></div>}</div></TabsContent>
           </div>
         </Tabs>
-        <div className="flex items-center justify-between border-t bg-background px-5 py-4 sm:px-6"><Button type="button" variant="outline" onClick={() => move(-1)} disabled={stepIndex === 0}><ChevronLeft className="mr-2 h-4 w-4" />Anterior</Button><div className="hidden text-xs text-muted-foreground sm:block">Paso {stepIndex + 1} de {productSteps.length}</div><div className="flex gap-2"><Button type="button" variant="ghost" disabled={uploadingImages} onClick={cancel}>Cancelar</Button>{stepIndex < productSteps.length - 1 ? <Button type="button" onClick={() => move(1)}>Siguiente<ChevronRight className="ml-2 h-4 w-4" /></Button> : <Button type="submit" disabled={uploadingImages}>{editing ? "Guardar cambios" : "Crear artículo"}</Button>}</div></div>
+        <div className="flex items-center justify-between border-t bg-background px-5 py-4 sm:px-6"><Button type="button" variant="outline" onClick={() => move(-1)} disabled={stepIndex === 0}><ChevronLeft className="mr-2 h-4 w-4" />Anterior</Button><div className="hidden text-xs text-muted-foreground sm:block">Paso {stepIndex + 1} de {productSteps.length}</div><div className="flex gap-2"><Button type="button" variant="ghost" disabled={uploadingImages} onClick={cancel}>Cancelar</Button>{stepIndex < productSteps.length - 1 ? <Button key="next-step" type="button" onClick={() => move(1)}>Siguiente<ChevronRight className="ml-2 h-4 w-4" /></Button> : <Button key="save-product" type="button" disabled={uploadingImages} onClick={() => { void submit() }}>{editing ? "Guardar cambios" : "Crear artículo"}</Button>}</div></div>
       </form>
     </Card>
   </div>

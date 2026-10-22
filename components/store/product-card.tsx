@@ -99,7 +99,7 @@ export function ProductCard({ product: initialProduct }: { product: Product }) {
           Master x{product.priceTiers.master.quantity}: {formatCOP(product.priceTiers.master.unitPrice)} / und
           {product.priceTiers.master.oldUnitPrice && product.priceTiers.master.oldUnitPrice > product.priceTiers.master.unitPrice ? ` (antes ${formatCOP(product.priceTiers.master.oldUnitPrice)})` : ""}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
           {stock > 0 ? (
             <span className="text-accent">En stock · {stock} unidades</span>
           ) : (
@@ -111,7 +111,7 @@ export function ProductCard({ product: initialProduct }: { product: Product }) {
           onClick={handleAdd}
           disabled={stock <= 0}
           className={cn(
-            "mt-3 w-full gap-2",
+            "mt-auto w-full gap-2",
             added
               ? "bg-accent text-accent-foreground hover:bg-accent/90"
               : "bg-primary text-primary-foreground hover:bg-primary/90",

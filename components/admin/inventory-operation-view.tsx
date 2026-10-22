@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { initialProductMaster, initialWarehouses, ProductMaster, PRODUCT_STORAGE_KEY, WarehouseRecord, WAREHOUSE_STORAGE_KEY } from "@/lib/product-master"
+import { initialProductMaster, initialWarehouses, PRODUCT_STORAGE_KEY, WarehouseRecord, WAREHOUSE_STORAGE_KEY } from "@/lib/product-master"
 
 export type InventoryOperationKind = "transfer" | "transfer-order" | "variant" | "production" | "output"
 type OperationLine = { id: string; productId: string; reference: string; name: string; unit: string; quantity: number; stock: number; targetProductId?: string }

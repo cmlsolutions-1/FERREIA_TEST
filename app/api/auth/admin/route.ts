@@ -1,4 +1,4 @@
-import { loginAdmin, logoutAdmin, requireAdmin, setAdminCookie, clearAdminCookie } from "@/server/modules/auth/auth.service"
+import { loginAdmin, logoutAdmin, requireAdmin, setAdminCookie, refreshAdminCookie, clearAdminCookie } from "@/server/modules/auth/auth.service"
 import { adminLoginSchema } from "@/server/modules/auth/auth.schema"
 import { handleApi, success } from "@/server/shared/api-response"
 import { parseBody } from "@/server/shared/validation"
@@ -7,7 +7,9 @@ import { assertRateLimit } from "@/server/shared/request-security"
 export const runtime = "nodejs"
 
 export async function GET(request: Request) {
-  return handleApi(async () => success("Sesión administrativa activa", await requireAdmin(request)))
+  const response = await handleApi(async () => success("Sesión administrativa activa", await requireAdmin(request)))
+  if (response.status === 401) return clearAdminCookie(response, request)
+  return response.ok ? refreshAdminCookie(response, request) : response
 }
 
 export async function POST(request: Request) {

@@ -26,8 +26,31 @@ export function AdminAuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    getAdminSession().then((user) => { if (mounted) setAuthenticated(Boolean(user)) }).catch(() => { if (mounted) setAuthenticated(false) })
-    return () => { mounted = false }
+
+    async function validateSession() {
+      try {
+        const user = await getAdminSession()
+        if (mounted) setAuthenticated(Boolean(user))
+      } catch {
+        if (mounted) setAuthenticated(false)
+      }
+    }
+
+    function validateVisibleSession() {
+      if (document.visibilityState === "visible") void validateSession()
+    }
+
+    void validateSession()
+    const interval = window.setInterval(validateSession, 60_000)
+    window.addEventListener("focus", validateSession)
+    document.addEventListener("visibilitychange", validateVisibleSession)
+
+    return () => {
+      mounted = false
+      window.clearInterval(interval)
+      window.removeEventListener("focus", validateSession)
+      document.removeEventListener("visibilitychange", validateVisibleSession)
+    }
   }, [])
 
   useEffect(() => {

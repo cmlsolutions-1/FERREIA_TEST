@@ -32,10 +32,7 @@ export function HomeHero({ products, totalProducts }: { products: Product[]; tot
 
       <div className="relative mx-auto grid max-w-7xl items-center gap-9 px-4 py-10 lg:grid-cols-[.92fr_1.08fr] lg:py-14">
         <div>
-          <span className="inline-flex items-center gap-2 rounded-full border border-brand-orange/20 bg-brand-orange/10 px-3 py-1.5 text-xs font-bold text-brand-orange">
-            <Sparkles className="h-3.5 w-3.5" /> FerreBot conectado al inventario real
-          </span>
-          <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.04] tracking-[-0.035em] text-brand-navy text-balance md:text-5xl dark:text-foreground">
+          <h1 className="max-w-2xl text-4xl font-black leading-[1.04] tracking-[-0.035em] text-brand-navy text-balance md:text-5xl dark:text-foreground">
             Busca productos o cuéntale tu proyecto a <span className="text-brand-orange">FerreBot</span>
           </h1>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty md:text-lg">

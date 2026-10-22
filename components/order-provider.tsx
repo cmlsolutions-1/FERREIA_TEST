@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { usePathname } from "next/navigation"
 import type { CreateOrderInput, FerreiaOrder } from "@/lib/orders"
 import { createOrder as saveOrder, getAllOrders, getMyOrders, updateOrder as saveOrderUpdate } from "@/services/orders.service"
@@ -9,6 +9,8 @@ import { useCustomerSession } from "@/components/customer-session-provider"
 type OrderUpdate = Partial<Pick<FerreiaOrder, "carrier" | "trackingNumber" | "estimatedFrom" | "estimatedTo" | "currentLocation" | "status" | "paymentStatus">>
 type OrderContextValue = {
   orders: FerreiaOrder[]
+  loading: boolean
+  error: string
   createOrder: (input: CreateOrderInput) => Promise<{ order: FerreiaOrder | null; error: string | null }>
   updateOrder: (id: string, patch: OrderUpdate, detail?: string) => Promise<FerreiaOrder>
   findOrder: (id: string, email?: string, customerId?: string | null) => FerreiaOrder | null
@@ -20,14 +22,29 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const { user } = useCustomerSession()
   const [orders, setOrders] = useState<FerreiaOrder[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     if (!pathname.startsWith("/admin") || pathname === "/admin/login") return
     let active = true
-    getAllOrders().then((result) => { if (active) setOrders(result) }).catch(() => {})
+    setLoading(true)
+    getAllOrders()
+      .then((result) => { if (active) { setOrders(result); setError("") } })
+      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "No fue posible cargar los pedidos") })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [pathname])
-  useEffect(() => { if (pathname.startsWith("/admin") || !user) return; let active = true; getMyOrders().then((result) => { if (active) setOrders(result.data) }).catch(() => {}); return () => { active = false } }, [pathname, user])
+  useEffect(() => {
+    if (pathname.startsWith("/admin") || !user) return
+    let active = true
+    setLoading(true)
+    getMyOrders()
+      .then((result) => { if (active) { setOrders(result.data); setError("") } })
+      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "No fue posible cargar tus pedidos") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [pathname, user])
 
   async function createOrder(input: CreateOrderInput) {
     try {
@@ -53,7 +70,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     return order.email.toLowerCase() === email.trim().toLowerCase() ? order : null
   }
 
-  const value = useMemo(() => ({ orders, createOrder, updateOrder, findOrder }), [orders])
+  const value = { orders, loading, error, createOrder, updateOrder, findOrder }
   return <OrderContext.Provider value={value}>{children}</OrderContext.Provider>
 }
 
